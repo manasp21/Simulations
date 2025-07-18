@@ -179,8 +179,8 @@
                 </div>
                 <div class="parameter">
                     <label>Plot Range Start (m):</label>
-                    <input type="range" id="plotStartSlider" min="5" max="20" value="12" step="1">
-                    <span class="value-display" id="plotStartValue">12</span>
+                    <input type="range" id="plotStartSlider" min="0" max="20" value="0" step="1">
+                    <span class="value-display" id="plotStartValue">0</span>
                 </div>
                 <div class="parameter">
                     <label>Plot Range End (m):</label>
@@ -253,7 +253,7 @@
         
         // Visualization parameters
         let arrowScale = 2;
-        let plotStartDistance = 12; // meters
+        let plotStartDistance = 0; // meters
         let plotEndDistance = 58; // meters
         
         // Plot data storage
@@ -368,6 +368,14 @@
         // Sample field at specific distance from center
         function sampleFieldAtDistance(distance, t) {
             const centerHeight = towerHeight - 6;
+            
+            // Special case: distance = 0 means sample at exact center point
+            if (distance === 0) {
+                const field = calculateElectricField(0, centerHeight, t);
+                return getFieldMagnitude(field.x, field.y);
+            }
+            
+            // For distance > 0, sample around circle and average
             const numSamples = 8; // Sample at 8 points around circle
             let totalMag = 0;
             
