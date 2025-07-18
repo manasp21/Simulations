@@ -23,7 +23,7 @@
             border: 1px solid #333;
             display: block;
             margin: 20px auto;
-            background: linear-gradient(to bottom, #1a1a2e 0%, #0f0f1e 70%, #16213e 100%);
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 70%, #C8D6C8 100%);
         }
         .controls {
             display: grid;
@@ -94,18 +94,6 @@
             border-radius: 3px;
             overflow-x: auto;
         }
-        .footer {
-            text-align: center;
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #2a2a3a;
-            border-radius: 5px;
-            color: #ccc;
-            font-size: 14px;
-        }
-        .footer p {
-            margin: 0;
-        }
     </style>
 </head>
 <body>
@@ -121,8 +109,8 @@
                 <button id="resetBtn">Reset</button>
                 <div class="parameter">
                     <label>Visual Update Rate (Hz):</label>
-                    <input type="range" id="updateRateSlider" min="1" max="30" value="10" step="1">
-                    <span class="value-display" id="updateRateValue">10</span>
+                    <input type="range" id="updateRateSlider" min="5" max="60" value="30" step="5">
+                    <span class="value-display" id="updateRateValue">30</span>
                 </div>
             </div>
             
@@ -132,8 +120,8 @@
                 <button id="circuit2Btn" class="circuit-btn">Circuit 2: ON</button>
                 <div class="parameter">
                     <label>Phase Offset (deg):</label>
-                    <input type="range" id="phaseOffsetSlider" min="0" max="360" value="0" step="15">
-                    <span class="value-display" id="phaseOffsetValue">0</span>
+                    <input type="range" id="phaseOffsetSlider" min="0" max="360" value="180" step="15">
+                    <span class="value-display" id="phaseOffsetValue">180</span>
                 </div>
             </div>
             
@@ -168,25 +156,19 @@
         
         <div class="info">
             <h3>Technical Details</h3>
-            <p><strong>Configuration:</strong> Double-circuit three-phase transmission line with concentric equilateral triangle arrangement</p>
-            <p><strong>Tower Height:</strong> 35 meters (typical for 345-500 kV transmission)</p>
+            <p><strong>Configuration:</strong> Double-circuit three-phase transmission line with opposing phase arrangement (A1↔A2, B1↔B2, C1↔C2)</p>
+            <p><strong>Field Demonstration:</strong> 3 wires = rotating field, 6 wires with 180° offset = zero center field</p>
             <p><strong>Mathematical Model:</strong></p>
             <div class="formula">
                 E(r,t) = Σᵢ₌₁⁶ [λᵢ(t) / (2πε₀)] · (r̂ᵢ / rᵢ)
                 <br>
-                where λᵢ(t) = 2πε₀Vᵢ(t) / ln(2h/a)
-                <br>
-                Vᵢ(t) = V_peak × sin(ωt + φᵢ + θ_circuit)
+                Center field cancellation: E₁₂(t) + E₂₁(t) = 0 when φ₂ = φ₁ + 180°
             </div>
-            <p><strong>Time:</strong> <span id="timeDisplay">0.000</span> s (10× slow motion) | 
+            <p><strong>Time:</strong> <span id="timeDisplay">0.000</span> s | 
                <strong>Max Field:</strong> <span id="fieldMagnitude">0.0</span> kV/m |
-               <strong>Phase A1:</strong> <span id="phaseA1">0</span>° |
-               <strong>Circuit 2 Offset:</strong> <span id="circuit2Phase">0</span>°
+               <strong>Center Field:</strong> <span id="centerField">0.0</span> kV/m |
+               <strong>Circuit 2 Offset:</strong> <span id="circuit2Phase">180</span>°
             </p>
-        </div>
-        
-        <div class="footer">
-            <p>Created by <strong>Manas Pandey</strong> using Claude Opus 4 in July 2025</p>
         </div>
     </div>
 
@@ -212,15 +194,15 @@
         let isPaused = false;
         let time = 0;
         let lastUpdateTime = 0;
-        let updateRate = 10; // Hz (visual refresh rate)
-        let updateInterval = 1000 / updateRate; // milliseconds between updates
+        let updateRate = 30;
+        let updateInterval = 1000 / updateRate;
         let startTime = performance.now();
-        const timeScale = 0.1; // Slow down time by factor of 10 for visibility
+        const timeScale = 0.05;
         
         // Circuit states
         let circuit1Active = true;
         let circuit2Active = true;
-        let phaseOffsetDegrees = 0;
+        let phaseOffsetDegrees = 180; // Default to 180° for field cancellation
         
         // Electrical parameters
         let peakVoltage = 345000; // Volts
@@ -231,35 +213,44 @@
         let vectorSpacing = 40;
         let vectorScale = 1.5;
         
-        // Calculate conductor positions (two concentric equilateral triangles)
+        // Calculate conductor positions (hexagonal with opposite phases)
         function calculateConductorPositions() {
-            const innerRadius = 4; // meters
-            const outerRadius = 8; // meters
+            const hexRadius = 6; // meters
             const centerHeight = towerHeight - 6; // meters from ground
             
             const positions = [];
             
-            // Inner triangle (Circuit 1)
+            // Circuit 1: A1, B1, C1 at vertices 0, 2, 4 (every other vertex)
+            // Circuit 2: A2, B2, C2 at vertices 3, 5, 1 (opposite to Circuit 1)
+            const phaseNames = ['A', 'B', 'C'];
+            const circuit1Vertices = [0, 2, 4]; // Top, bottom-right, bottom-left
+            const circuit2Vertices = [3, 5, 1]; // Bottom, top-left, top-right (opposite)
+            
+            // Circuit 1 conductors
             for (let i = 0; i < 3; i++) {
-                const angle = (i * 120 - 90) * Math.PI / 180; // Start from top
+                const vertex = circuit1Vertices[i];
+                const angle = (vertex * 60 - 90) * Math.PI / 180; // Start from top
+                
                 positions.push({
-                    x: Math.cos(angle) * innerRadius,
-                    y: centerHeight + Math.sin(angle) * innerRadius,
-                    phase: i * 120,
+                    x: Math.cos(angle) * hexRadius,
+                    y: centerHeight + Math.sin(angle) * hexRadius,
+                    phase: i * 120, // 0°, 120°, 240°
                     circuit: 1,
-                    label: String.fromCharCode(65 + i) + '1'
+                    label: phaseNames[i] + '1'
                 });
             }
             
-            // Outer triangle (Circuit 2)
+            // Circuit 2 conductors (opposite positions)
             for (let i = 0; i < 3; i++) {
-                const angle = (i * 120 - 90) * Math.PI / 180; // Start from top
+                const vertex = circuit2Vertices[i];
+                const angle = (vertex * 60 - 90) * Math.PI / 180; // Start from top
+                
                 positions.push({
-                    x: Math.cos(angle) * outerRadius,
-                    y: centerHeight + Math.sin(angle) * outerRadius,
-                    phase: i * 120,
+                    x: Math.cos(angle) * hexRadius,
+                    y: centerHeight + Math.sin(angle) * hexRadius,
+                    phase: i * 120, // 0°, 120°, 240°
                     circuit: 2,
-                    label: String.fromCharCode(65 + i) + '2'
+                    label: phaseNames[i] + '2'
                 });
             }
             
@@ -327,41 +318,10 @@
             return Math.sqrt(Ex * Ex + Ey * Ey);
         }
         
-        // Color mapping for field strength
+        // Simple color scheme - uniform color for all vectors
         function getFieldColor(magnitude, alpha = 1) {
-            const maxField = 30; // kV/m - reduced for more vibrant colors
-            const normalized = Math.min(magnitude / maxField, 1);
-            
-            let r, g, b;
-            
-            if (normalized < 0.2) {
-                // Dark to bright cyan
-                r = 0;
-                g = 100 + normalized * 5 * 155;
-                b = 200 + normalized * 5 * 55;
-            } else if (normalized < 0.4) {
-                // Cyan to electric blue
-                r = (normalized - 0.2) * 5 * 80;
-                g = 255 - (normalized - 0.2) * 5 * 155;
-                b = 255;
-            } else if (normalized < 0.6) {
-                // Electric blue to violet
-                r = 80 + (normalized - 0.4) * 5 * 175;
-                g = 100 - (normalized - 0.4) * 5 * 100;
-                b = 255;
-            } else if (normalized < 0.8) {
-                // Violet to hot pink
-                r = 255;
-                g = (normalized - 0.6) * 5 * 180;
-                b = 255 - (normalized - 0.6) * 5 * 155;
-            } else {
-                // Hot pink to bright orange-red
-                r = 255;
-                g = 180 - (normalized - 0.8) * 5 * 80;
-                b = 100 - (normalized - 0.8) * 5 * 100;
-            }
-            
-            return `rgba(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)}, ${alpha})`;
+            // Use a single color for all field vectors
+            return `rgba(0, 100, 255, ${alpha})`; // Blue arrows
         }
         
         // Draw transmission tower
@@ -369,10 +329,10 @@
             const base = worldToScreen(0, 0);
             const top = worldToScreen(0, towerHeight);
             
-            ctx.strokeStyle = '#888';
+            ctx.strokeStyle = '#444';
             ctx.lineWidth = 6;
             
-            // Main vertical structure - wider base
+            // Main vertical structure
             ctx.beginPath();
             ctx.moveTo(base.x - 50, base.y);
             ctx.lineTo(top.x - 15, top.y);
@@ -382,11 +342,11 @@
             
             // Cross braces
             ctx.lineWidth = 3;
-            ctx.strokeStyle = '#666';
+            ctx.strokeStyle = '#555';
             const braceCount = 5;
             for (let i = 1; i <= braceCount; i++) {
                 const y = i * towerHeight / (braceCount + 1);
-                const width_at_y = 50 - (35 * i / (braceCount + 1)); // Taper from base to top
+                const width_at_y = 50 - (35 * i / (braceCount + 1));
                 const p1 = worldToScreen(-width_at_y/pixelsPerMeter, y);
                 const p2 = worldToScreen(width_at_y/pixelsPerMeter, y);
                 
@@ -395,7 +355,6 @@
                 ctx.lineTo(p2.x, p2.y);
                 ctx.stroke();
                 
-                // X-braces
                 if (i < braceCount) {
                     const y2 = (i + 1) * towerHeight / (braceCount + 1);
                     const width_at_y2 = 50 - (35 * (i + 1) / (braceCount + 1));
@@ -411,21 +370,30 @@
                 }
             }
             
-            // Cross arms at conductor level
+            // Hexagonal support structure
             const armY = towerHeight - 6;
             const armPos = worldToScreen(0, armY);
             ctx.lineWidth = 4;
-            ctx.strokeStyle = '#888';
-            ctx.beginPath();
-            ctx.moveTo(armPos.x - 140, armPos.y);
-            ctx.lineTo(armPos.x + 140, armPos.y);
-            ctx.stroke();
+            ctx.strokeStyle = '#444';
             
-            // Insulator strings (simplified)
-            ctx.strokeStyle = '#aaa';
+            const hexRadius = 6;
+            for (let i = 0; i < 6; i++) {
+                const angle = (i * 60 - 90) * Math.PI / 180;
+                const endX = Math.cos(angle) * hexRadius * 0.8;
+                const endY = armY + Math.sin(angle) * hexRadius * 0.8;
+                const end = worldToScreen(endX, endY);
+                
+                ctx.beginPath();
+                ctx.moveTo(armPos.x, armPos.y);
+                ctx.lineTo(end.x, end.y);
+                ctx.stroke();
+            }
+            
+            // Insulator strings
+            ctx.strokeStyle = '#666';
             ctx.lineWidth = 2;
             conductors.forEach(conductor => {
-                const attach = worldToScreen(conductor.x * 0.7, conductor.y);
+                const attach = worldToScreen(conductor.x * 0.8, conductor.y);
                 const cond = worldToScreen(conductor.x, conductor.y);
                 
                 ctx.beginPath();
@@ -433,7 +401,6 @@
                 ctx.lineTo(cond.x, cond.y);
                 ctx.stroke();
                 
-                // Draw insulator discs
                 for (let i = 0; i < 4; i++) {
                     const t = (i + 1) / 5;
                     const ix = attach.x + (cond.x - attach.x) * t;
@@ -441,7 +408,7 @@
                     
                     ctx.beginPath();
                     ctx.arc(ix, iy, 4, 0, TWO_PI);
-                    ctx.fillStyle = '#ccc';
+                    ctx.fillStyle = '#888';
                     ctx.fill();
                 }
             });
@@ -449,15 +416,13 @@
         
         // Draw ground
         function drawGround() {
-            ctx.fillStyle = '#2a2a3a';
+            ctx.fillStyle = '#8B7355';
             ctx.fillRect(0, groundLevel, width, height - groundLevel);
             
-            // Grass
-            ctx.fillStyle = '#1a4a1a';
+            ctx.fillStyle = '#228B22';
             ctx.fillRect(0, groundLevel, width, 5);
             
-            // Ground wire symbols
-            ctx.strokeStyle = '#888';
+            ctx.strokeStyle = '#666';
             ctx.lineWidth = 2;
             for (let x = 100; x < width; x += 200) {
                 ctx.beginPath();
@@ -476,152 +441,127 @@
             conductors.forEach(conductor => {
                 const pos = worldToScreen(conductor.x, conductor.y);
                 
-                // Check if circuit is active
                 const isActive = (conductor.circuit === 1 && circuit1Active) || 
                                (conductor.circuit === 2 && circuit2Active);
                 
-                // Draw conductor
                 ctx.beginPath();
-                ctx.arc(pos.x, pos.y, 10, 0, TWO_PI);
+                ctx.arc(pos.x, pos.y, 8, 0, TWO_PI);
                 
                 if (isActive) {
-                    // Color based on instantaneous voltage
                     const phaseRad = (conductor.phase + (conductor.circuit === 2 ? phaseOffsetDegrees : 0)) * Math.PI / 180;
                     const voltage = Math.sin(omega * time + phaseRad);
                     const intensity = (voltage + 1) / 2;
                     
-                    // Deep red to bright yellow-white for active conductors
-                    if (intensity < 0.5) {
-                        const t = intensity * 2;
-                        ctx.fillStyle = `rgb(${100 + 155 * t}, ${20 * t}, ${20 * t})`;
-                    } else {
-                        const t = (intensity - 0.5) * 2;
-                        ctx.fillStyle = `rgb(255, ${100 + 155 * t}, ${100 * t})`;
-                    }
+                    ctx.fillStyle = `rgb(${255 * intensity}, ${100 * intensity}, ${100 * intensity})`;
                 } else {
-                    ctx.fillStyle = '#222';
+                    ctx.fillStyle = '#444';
                 }
                 
                 ctx.fill();
-                ctx.strokeStyle = isActive ? '#fff' : '#444';
-                ctx.lineWidth = 3;
+                ctx.strokeStyle = isActive ? '#fff' : '#666';
+                ctx.lineWidth = 2;
                 ctx.stroke();
                 
-                // Add glow for active conductors
-                if (isActive) {
-                    ctx.shadowColor = ctx.fillStyle;
-                    ctx.shadowBlur = 15;
-                    ctx.stroke();
-                    ctx.shadowBlur = 0;
-                }
-                
-                // Label with shadow for visibility
-                ctx.fillStyle = isActive ? '#fff' : '#888';
+                ctx.fillStyle = isActive ? '#fff' : '#666';
                 ctx.font = 'bold 12px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.shadowColor = '#000';
-                ctx.shadowBlur = 4;
                 ctx.fillText(conductor.label, pos.x, pos.y);
-                ctx.shadowBlur = 0;
             });
         }
         
         // Draw field vectors
         function drawFieldVectors() {
             let maxMag = 0;
+            let centerFieldMag = 0;
+            
+            // Calculate center field
+            const centerHeight = towerHeight - 6;
+            const centerField = calculateElectricField(0, centerHeight, time);
+            centerFieldMag = getFieldMagnitude(centerField.x, centerField.y);
             
             // Draw vector grid
             for (let x = vectorSpacing; x < width; x += vectorSpacing) {
                 for (let y = vectorSpacing; y < groundLevel; y += vectorSpacing) {
-                    // Convert to world coordinates
                     const worldX = (x - towerBase) / pixelsPerMeter;
                     const worldY = (groundLevel - y) / pixelsPerMeter;
                     
-                    // Calculate field
                     const field = calculateElectricField(worldX, worldY, time);
                     const magnitude = getFieldMagnitude(field.x, field.y);
                     maxMag = Math.max(maxMag, magnitude);
                     
-                    if (magnitude > 0.05) {
-                        // Normalize and scale vector
+                    if (magnitude > 0.1) {
                         const scale = Math.min(magnitude * vectorScale, vectorSpacing * 0.8);
                         const vx = (field.x / magnitude) * scale;
-                        const vy = -(field.y / magnitude) * scale; // Negative because screen y is inverted
+                        const vy = -(field.y / magnitude) * scale;
                         
-                        // Add subtle glow effect for stronger fields
-                        if (magnitude > 5) {
-                            ctx.shadowColor = getFieldColor(magnitude, 1);
-                            ctx.shadowBlur = magnitude / 2;
-                        }
-                        
-                        // Draw vector
-                        ctx.strokeStyle = getFieldColor(magnitude, 1);
-                        ctx.lineWidth = Math.min(3 + magnitude / 6, 6);
+                        ctx.strokeStyle = getFieldColor(magnitude, 0.8);
+                        ctx.lineWidth = 2;
                         
                         ctx.beginPath();
                         ctx.moveTo(x, y);
                         ctx.lineTo(x + vx, y + vy);
                         ctx.stroke();
                         
-                        // Reset shadow
-                        ctx.shadowBlur = 0;
-                        
-                        // Arrowhead - larger and filled
-                        const arrowLength = 12;
-                        const arrowAngle = 0.6;
-                        const angle = Math.atan2(vy, vx);
-                        
-                        ctx.fillStyle = getFieldColor(magnitude, 1);
-                        ctx.beginPath();
-                        ctx.moveTo(x + vx, y + vy);
-                        ctx.lineTo(
-                            x + vx - arrowLength * Math.cos(angle - arrowAngle),
-                            y + vy - arrowLength * Math.sin(angle - arrowAngle)
-                        );
-                        ctx.lineTo(
-                            x + vx - arrowLength * Math.cos(angle + arrowAngle),
-                            y + vy - arrowLength * Math.sin(angle + arrowAngle)
-                        );
-                        ctx.closePath();
-                        ctx.fill();
+                        if (magnitude > 1.0) {
+                            const arrowLength = 8;
+                            const arrowAngle = 0.5;
+                            const angle = Math.atan2(vy, vx);
+                            
+                            ctx.beginPath();
+                            ctx.moveTo(x + vx, y + vy);
+                            ctx.lineTo(
+                                x + vx - arrowLength * Math.cos(angle - arrowAngle),
+                                y + vy - arrowLength * Math.sin(angle - arrowAngle)
+                            );
+                            ctx.moveTo(x + vx, y + vy);
+                            ctx.lineTo(
+                                x + vx - arrowLength * Math.cos(angle + arrowAngle),
+                                y + vy - arrowLength * Math.sin(angle + arrowAngle)
+                            );
+                            ctx.stroke();
+                        }
                     }
                 }
             }
             
-            // Update display
+            // Draw center point marker
+            const centerPos = worldToScreen(0, centerHeight);
+            ctx.beginPath();
+            ctx.arc(centerPos.x, centerPos.y, 5, 0, TWO_PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Update displays
             document.getElementById('fieldMagnitude').textContent = maxMag.toFixed(1);
+            document.getElementById('centerField').textContent = centerFieldMag.toFixed(1);
         }
         
         // Main render function
         function render() {
-            // Clear canvas with dark gradient
             const gradient = ctx.createLinearGradient(0, 0, 0, height);
-            gradient.addColorStop(0, '#0a0a0f');
-            gradient.addColorStop(0.5, '#1a1a2e');
-            gradient.addColorStop(1, '#0f0f1e');
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(0.7, '#E0F6FF');
+            gradient.addColorStop(1, '#C8D6C8');
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, width, height);
             
-            // Draw scene
             drawGround();
             drawTower();
             drawFieldVectors();
             drawConductors();
             
-            // Update status
             document.getElementById('timeDisplay').textContent = time.toFixed(3);
-            const phaseA1Deg = (((omega * time * 180 / Math.PI) % 360) + 360) % 360;
-            document.getElementById('phaseA1').textContent = phaseA1Deg.toFixed(0);
             document.getElementById('circuit2Phase').textContent = phaseOffsetDegrees.toFixed(0);
         }
         
         // Animation loop
         function animate(currentTime) {
             if (!isPaused) {
-                // Check if it's time to update based on the update rate
                 if (currentTime - lastUpdateTime >= updateInterval) {
-                    // Update time based on real elapsed time with time scaling
                     const elapsedSeconds = (currentTime - startTime) / 1000;
                     time = elapsedSeconds * timeScale;
                     
@@ -639,7 +579,6 @@
             this.textContent = isPaused ? 'Play' : 'Pause';
             
             if (!isPaused) {
-                // When resuming, adjust the start time to account for the pause duration
                 const pausedDuration = performance.now() - lastUpdateTime;
                 startTime += pausedDuration;
                 lastUpdateTime = performance.now();

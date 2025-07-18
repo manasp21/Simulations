@@ -11,8 +11,9 @@ This repository contains interactive physics simulations for visualizing electri
 **Self-Contained HTML Simulations**: Each simulation is a complete, standalone HTML file containing embedded CSS styling and JavaScript physics engine. No external dependencies, build systems, or package managers are used.
 
 **Core Components**:
-- `ElectricFieldSimulationDark.html` - Dark theme simulation
-- `ElectricFieldSimulationLight.html` - Light theme simulation (identical functionality, different visual styling)
+- `ElectricFieldSimulation.html` - Interactive electric field simulation with full vector field display
+- `ElectricFieldSimulationSimple.html` - Simplified version with central arrow and distance plot analysis
+- `ElectricFieldSimulation_backup.html` - Backup of original simulation
 
 ## Technical Implementation
 
@@ -29,13 +30,20 @@ This repository contains interactive physics simulations for visualizing electri
 
 **Visualization System**:
 - Canvas-based vector field rendering
-- Color-coded field magnitude mapping (blue→cyan→green→yellow→red)
-- Real-time animation with configurable update rates (1-30 Hz)
+- Uniform blue arrow styling for field vectors
+- Real-time animation with configurable update rates (5-60 Hz)
 - Interactive parameter controls for voltage (115-765 kV), frequency (50-60 Hz), phase offsets
 
 ## Usage
 
 **Running Simulations**: Open HTML files directly in any modern web browser. No installation or setup required.
+
+**Development Workflow**: Since files are self-contained HTML, simply edit the file and refresh browser to see changes. No build process or package management needed.
+
+**Simulation Variants**:
+- **Full Version**: Complete vector field visualization across entire simulation area
+- **Simplified Version**: Dual-panel layout with central arrow and distance plot (12m-58m range)
+- **Analysis Focus**: Simplified version emphasizes field behavior at center point and radial distance analysis
 
 **Key Parameters**:
 - Peak Voltage: Real-world transmission line voltages in kV
@@ -45,23 +53,29 @@ This repository contains interactive physics simulations for visualizing electri
 
 ## Development Guidelines
 
-**Theme Synchronization**: When modifying functionality, ensure both Dark and Light variants maintain identical physics calculations and control interfaces. Only visual styling should differ between themes.
+**Single File Architecture**: The simulation is contained in a single HTML file. When creating variations (dark/light themes), maintain identical physics calculations and control interfaces - only visual styling should differ between variants.
 
 **Physics Accuracy**: Mathematical models must remain scientifically accurate for educational use. Key constants:
 - EPSILON_0 = 8.854e-12 F/m (vacuum permittivity)
-- Conductor arrangements: Inner/outer equilateral triangles (4m/8m radius)
+- Conductor arrangements: Hexagonal configuration with 6m radius, opposing phase arrangement
 
 **Performance**: Simulations run real-time field calculations on vector grids. Optimize for smooth animation while maintaining calculation accuracy.
 
 **Code Structure**: Functions are organized by purpose:
-- `calculateElectricField()` - Core physics computation
+- `calculateElectricField()` - Core physics computation with method of images
 - `draw*()` functions - Rendering components (tower, conductors, vectors, ground)
+- `worldToScreen()` - Coordinate system conversion
 - Event handlers - UI parameter controls
-- `animate()` - Main render loop
+- `animate()` - Main render loop with configurable update rates
+
+**Simplified Version Additional Functions**:
+- `drawCentralArrow()` - Single large arrow at center point showing field vector
+- `drawFieldPlot()` - Real-time distance vs field magnitude plot
+- `sampleFieldAtDistance()` - Averages field magnitude at 8 points around distance circle
 
 ## File Conventions
 
 - HTML files are self-contained with embedded CSS/JS
-- Dark theme uses darker color schemes for backgrounds and UI elements
-- Light theme uses brighter, more traditional color schemes
-- Both themes use identical DOM structure and JavaScript functionality
+- Current implementation uses light theme styling with gradient sky background
+- When creating theme variants, maintain identical DOM structure and JavaScript functionality
+- File naming convention: `ElectricFieldSimulation[Theme].html`
