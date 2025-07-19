@@ -243,8 +243,8 @@
         let lastUpdateTime = 0;
         let updateRate = 30;
         let updateInterval = 1000 / updateRate;
-        let startTime = performance.now();
-        const timeScale = 0.05;
+        let startTime = 0; // Will be initialized on first animation frame
+        const timeScale = 0.02; // Slow, smooth vector movement
         
         // Circuit states
         let circuit1Active = true;
@@ -593,17 +593,46 @@
                 fieldCtx.arc(centerPos.x, centerPos.y, radius, 0, TWO_PI);
                 fieldCtx.stroke();
                 
-                // Add distance labels at the right side of each circle
-                const labelX = centerPos.x + radius;
-                const labelY = centerPos.y;
+                // Add single distance label at optimal position
+                fieldCtx.fillStyle = '#444444';
+                fieldCtx.font = 'bold 14px Arial';
+                fieldCtx.textAlign = 'center';
+                fieldCtx.textBaseline = 'middle';
                 
-                // Only draw label if it's within canvas bounds
-                if (labelX < fieldWidth - 20) {
-                    fieldCtx.fillStyle = '#666666';
-                    fieldCtx.font = '12px Arial';
-                    fieldCtx.textAlign = 'left';
-                    fieldCtx.textBaseline = 'middle';
-                    fieldCtx.fillText(`${distance}m`, labelX + 5, labelY);
+                // Choose best label position based on circle size and canvas bounds
+                let labelX, labelY;
+                
+                // For smaller circles (10m, 20m), label at top-right
+                if (distance <= 20) {
+                    const angle = -Math.PI / 4; // 45 degrees up-right
+                    labelX = centerPos.x + Math.cos(angle) * radius;
+                    labelY = centerPos.y + Math.sin(angle) * radius;
+                }
+                // For medium circles (30m), label at top
+                else if (distance <= 30) {
+                    labelX = centerPos.x + 15; // Slightly right of center
+                    labelY = centerPos.y - radius;
+                }
+                // For larger circles (40m, 50m), label at bottom-right
+                else {
+                    const angle = Math.PI / 4; // 45 degrees down-right
+                    labelX = centerPos.x + Math.cos(angle) * radius;
+                    labelY = centerPos.y + Math.sin(angle) * radius;
+                }
+                
+                // Only draw label if it's within reasonable bounds
+                if (labelX > 20 && labelX < fieldWidth - 20 && 
+                    labelY > 20 && labelY < fieldHeight - 20) {
+                    
+                    // Add background circle for better readability
+                    fieldCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    fieldCtx.beginPath();
+                    fieldCtx.arc(labelX, labelY, 12, 0, TWO_PI);
+                    fieldCtx.fill();
+                    
+                    // Draw text
+                    fieldCtx.fillStyle = '#444444';
+                    fieldCtx.fillText(`${distance}m`, labelX, labelY);
                 }
             }
             
@@ -782,11 +811,15 @@
             plotCtx.font = '12px Arial';
             plotCtx.textAlign = 'center';
             
-            // X-axis labels - use 10m intervals
+            // X-axis labels - use 10m intervals with better positioning
             for (let i = 0; i <= 5; i++) {
                 const distance = i * 10; // 0, 10, 20, 30, 40, 50m
                 const x = margin + (plotAreaWidth * distance / (plotEndDistance - plotStartDistance));
-                plotCtx.fillText(distance + 'm', x, plotHeight - margin + 20);
+                
+                // Ensure labels stay within canvas bounds
+                if (x >= margin && x <= plotWidth - margin) {
+                    plotCtx.fillText(distance + 'm', x, plotHeight - margin + 20);
+                }
             }
             
             // Y-axis labels
@@ -847,24 +880,25 @@
             drawConductors();
             drawCentralArrow();
             drawSecondaryArrow();
-            
-            // Draw plot
-            drawFieldPlot();
-            
-            // Update time display
-            document.getElementById('timeDisplay').textContent = time.toFixed(3);
-            document.getElementById('circuit2Phase').textContent = phaseOffsetDegrees.toFixed(0);
         }
         
         // Animation loop
         function animate(currentTime) {
             if (!isPaused) {
+                // Smooth time progression without jumps
+                if (startTime === 0) startTime = currentTime; // Initialize on first frame
+                const elapsedSeconds = (currentTime - startTime) / 1000;
+                time = elapsedSeconds * timeScale;
+                
+                // Always render vectors for perfectly smooth animation
+                render();
+                
+                // Only update text displays at controlled rate for performance
                 if (currentTime - lastUpdateTime >= updateInterval) {
-                    const elapsedSeconds = (currentTime - startTime) / 1000;
-                    time = elapsedSeconds * timeScale;
-                    
                     lastUpdateTime = currentTime;
-                    render();
+                    // Update time display at controlled rate
+                    document.getElementById('timeDisplay').textContent = time.toFixed(3);
+                    document.getElementById('circuit2Phase').textContent = phaseOffsetDegrees.toFixed(0);
                 }
             }
             
@@ -877,17 +911,18 @@
             this.textContent = isPaused ? 'Play' : 'Pause';
             
             if (!isPaused) {
-                const pausedDuration = performance.now() - lastUpdateTime;
-                startTime += pausedDuration;
+                // Reset start time to current time to avoid jumps when resuming
+                startTime = performance.now() - (time / timeScale * 1000);
                 lastUpdateTime = performance.now();
             }
         });
         
         document.getElementById('resetBtn').addEventListener('click', function() {
             time = 0;
-            startTime = performance.now();
+            startTime = 0; // Will be reset on next frame
             lastUpdateTime = 0;
             render();
+            drawFieldPlot();
         });
         
         document.getElementById('circuit1Btn').addEventListener('click', function() {
@@ -895,6 +930,7 @@
             this.textContent = `Circuit 1: ${circuit1Active ? 'ON' : 'OFF'}`;
             this.classList.toggle('off', !circuit1Active);
             render();
+            drawFieldPlot();
         });
         
         document.getElementById('circuit2Btn').addEventListener('click', function() {
@@ -902,6 +938,7 @@
             this.textContent = `Circuit 2: ${circuit2Active ? 'ON' : 'OFF'}`;
             this.classList.toggle('off', !circuit2Active);
             render();
+            drawFieldPlot();
         });
         
         document.getElementById('updateRateSlider').addEventListener('input', function() {
@@ -914,12 +951,14 @@
             phaseOffsetDegrees = parseInt(this.value);
             document.getElementById('phaseOffsetValue').textContent = this.value;
             render();
+            drawFieldPlot();
         });
         
         document.getElementById('voltageSlider').addEventListener('input', function() {
             peakVoltage = parseInt(this.value) * 1000;
             document.getElementById('voltageValue').textContent = this.value;
             render();
+            drawFieldPlot();
         });
         
         document.getElementById('frequencySlider').addEventListener('input', function() {
@@ -938,22 +977,26 @@
             plotStartDistance = parseInt(this.value);
             document.getElementById('plotStartValue').textContent = this.value;
             render();
+            drawFieldPlot();
         });
         
         document.getElementById('plotEndSlider').addEventListener('input', function() {
             plotEndDistance = parseInt(this.value);
             document.getElementById('plotEndValue').textContent = this.value;
             render();
+            drawFieldPlot();
         });
         
         document.getElementById('plotMaxFieldSlider').addEventListener('input', function() {
             plotMaxField = parseInt(this.value);
             document.getElementById('plotMaxFieldValue').textContent = this.value;
             render();
+            drawFieldPlot();
         });
         
         // Initial render and start animation
         render();
+        drawFieldPlot(); // Initial plot draw
         animate(performance.now());
     </script>
 </body>
