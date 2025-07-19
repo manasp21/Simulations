@@ -184,8 +184,13 @@
                 </div>
                 <div class="parameter">
                     <label>Plot Range End (m):</label>
-                    <input type="range" id="plotEndSlider" min="40" max="100" value="58" step="2">
-                    <span class="value-display" id="plotEndValue">58</span>
+                    <input type="range" id="plotEndSlider" min="40" max="100" value="50" step="2">
+                    <span class="value-display" id="plotEndValue">50</span>
+                </div>
+                <div class="parameter">
+                    <label>Plot Max Field (kV/m):</label>
+                    <input type="range" id="plotMaxFieldSlider" min="5" max="50" value="20" step="1">
+                    <span class="value-display" id="plotMaxFieldValue">20</span>
                 </div>
             </div>
         </div>
@@ -254,7 +259,8 @@
         // Visualization parameters
         let arrowScale = 2;
         let plotStartDistance = 0; // meters
-        let plotEndDistance = 58; // meters
+        let plotEndDistance = 50; // meters
+        let plotMaxField = 20; // kV/m - fixed Y-axis maximum
         
         // Plot data storage
         let plotData = [];
@@ -314,9 +320,14 @@
             };
         }
         
-        // Calculate electric field using method of images (exact same as original)
+        // Calculate electric field using method of images with improved physics accuracy
         function calculateElectricField(worldX, worldY, t) {
             let Ex = 0, Ey = 0;
+            
+            // Return zero field if point is underground
+            if (worldY < 0) {
+                return { x: 0, y: 0 };
+            }
             
             conductors.forEach((conductor, index) => {
                 // Check if circuit is active
@@ -330,7 +341,8 @@
                 const dy = worldY - conductor.y;
                 const r2 = dx * dx + dy * dy;
                 
-                if (r2 < 0.1) return; // Avoid singularity
+                // Avoid singularity near conductor
+                if (r2 < 0.01) return; // 0.1m minimum distance
                 
                 const r = Math.sqrt(r2);
                 
@@ -338,24 +350,51 @@
                 const phaseRad = (conductor.phase + (conductor.circuit === 2 ? phaseOffsetDegrees : 0)) * Math.PI / 180;
                 const voltage = peakVoltage * Math.sin(omega * t + phaseRad);
                 
-                // Line charge density (simplified)
-                const lambda = 2 * Math.PI * EPSILON_0 * voltage / Math.log(2 * conductor.y / 0.02);
+                // Improved line charge density calculation for transmission lines
+                const conductorRadius = 0.015; // 1.5cm typical for high voltage conductors
+                const capacitanceCoeff = Math.log(2 * conductor.y / conductorRadius);
+                const lambda = 2 * Math.PI * EPSILON_0 * voltage / capacitanceCoeff;
                 
-                // Electric field components (2D approximation)
-                const Er = lambda / (2 * Math.PI * EPSILON_0 * r);
-                Ex += Er * dx / r / 1000; // Convert to kV/m
-                Ey += Er * dy / r / 1000;
+                // Electric field from real conductor
+                if (r > 0.1) { // Only calculate if far enough from conductor
+                    const Er = lambda / (2 * Math.PI * EPSILON_0 * r);
+                    const fieldContribX = Er * dx / r / 1000; // Convert to kV/m
+                    const fieldContribY = Er * dy / r / 1000;
+                    
+                    // Apply distance-based attenuation to improve numerical stability
+                    const attenuation = Math.min(1.0, 100.0 / r2); // Gentle attenuation at very large distances
+                    Ex += fieldContribX * attenuation;
+                    Ey += fieldContribY * attenuation;
+                }
                 
-                // Image conductor (ground reflection)
-                const dyImage = worldY + conductor.y;
+                // Image conductor (ground reflection) - perfect conductor boundary condition
+                const dyImage = worldY + conductor.y; // Image conductor position
                 const r2Image = dx * dx + dyImage * dyImage;
-                if (r2Image > 0.1) {
+                
+                if (r2Image > 0.01 && dyImage > 0) { // Ensure image is below ground
                     const rImage = Math.sqrt(r2Image);
-                    const ErImage = -lambda / (2 * Math.PI * EPSILON_0 * rImage);
-                    Ex += ErImage * dx / rImage / 1000;
-                    Ey += ErImage * dyImage / rImage / 1000;
+                    
+                    if (rImage > 0.1) { // Only calculate if far enough from image
+                        // Image conductor has opposite charge
+                        const ErImage = -lambda / (2 * Math.PI * EPSILON_0 * rImage);
+                        const imageContribX = ErImage * dx / rImage / 1000;
+                        const imageContribY = ErImage * dyImage / rImage / 1000;
+                        
+                        // Apply distance-based attenuation
+                        const attenuationImage = Math.min(1.0, 100.0 / r2Image);
+                        Ex += imageContribX * attenuationImage;
+                        Ey += imageContribY * attenuationImage;
+                    }
                 }
             });
+            
+            // Additional validation - limit unrealistic field values
+            const fieldMagnitude = Math.sqrt(Ex * Ex + Ey * Ey);
+            if (fieldMagnitude > 200) { // Limit to 200 kV/m maximum
+                const scale = 200 / fieldMagnitude;
+                Ex *= scale;
+                Ey *= scale;
+            }
             
             return { x: Ex, y: Ey };
         }
@@ -531,19 +570,132 @@
                 fieldCtx.stroke();
             }
             
-            // Draw center point
-            fieldCtx.beginPath();
-            fieldCtx.arc(centerPos.x, centerPos.y, 8, 0, TWO_PI);
-            fieldCtx.fillStyle = '#FF0000';
-            fieldCtx.fill();
-            fieldCtx.strokeStyle = '#FFFFFF';
-            fieldCtx.lineWidth = 3;
-            fieldCtx.stroke();
-            
             // Update center field display
             document.getElementById('centerField').textContent = centerFieldMag.toFixed(2);
             const centerAngle = Math.atan2(-centerField.y, centerField.x) * 180 / Math.PI;
             document.getElementById('centerAngle').textContent = centerAngle.toFixed(1);
+        }
+        
+        // Draw distance scale/grid
+        function drawDistanceScale() {
+            const centerHeight = towerHeight - 6;
+            const centerPos = worldToScreen(0, centerHeight);
+            
+            // Draw concentric circles at 10m, 20m, 30m, 40m, 50m intervals
+            fieldCtx.strokeStyle = '#CCCCCC';
+            fieldCtx.lineWidth = 1;
+            fieldCtx.setLineDash([5, 5]); // Dashed lines
+            
+            for (let distance = 10; distance <= 50; distance += 10) {
+                const radius = distance * pixelsPerMeter;
+                
+                fieldCtx.beginPath();
+                fieldCtx.arc(centerPos.x, centerPos.y, radius, 0, TWO_PI);
+                fieldCtx.stroke();
+                
+                // Add distance labels at the right side of each circle
+                const labelX = centerPos.x + radius;
+                const labelY = centerPos.y;
+                
+                // Only draw label if it's within canvas bounds
+                if (labelX < fieldWidth - 20) {
+                    fieldCtx.fillStyle = '#666666';
+                    fieldCtx.font = '12px Arial';
+                    fieldCtx.textAlign = 'left';
+                    fieldCtx.textBaseline = 'middle';
+                    fieldCtx.fillText(`${distance}m`, labelX + 5, labelY);
+                }
+            }
+            
+            // Reset line dash
+            fieldCtx.setLineDash([]);
+            
+            // Draw horizontal and vertical reference lines through center
+            fieldCtx.strokeStyle = '#BBBBBB';
+            fieldCtx.lineWidth = 1;
+            fieldCtx.setLineDash([3, 3]);
+            
+            // Horizontal line
+            fieldCtx.beginPath();
+            fieldCtx.moveTo(0, centerPos.y);
+            fieldCtx.lineTo(fieldWidth, centerPos.y);
+            fieldCtx.stroke();
+            
+            // Vertical line
+            fieldCtx.beginPath();
+            fieldCtx.moveTo(centerPos.x, 0);
+            fieldCtx.lineTo(centerPos.x, fieldHeight);
+            fieldCtx.stroke();
+            
+            // Reset line dash
+            fieldCtx.setLineDash([]);
+        }
+        
+        // Draw secondary E-vector at 25m from center
+        function drawSecondaryArrow() {
+            const centerHeight = towerHeight - 6;
+            const distance = 25; // 25m from center
+            const angle = 0; // To the right of center (can be made configurable later)
+            
+            const vectorX = Math.cos(angle) * distance;
+            const vectorY = centerHeight;
+            const vectorPos = worldToScreen(vectorX, vectorY);
+            
+            // Calculate field at this position
+            const field = calculateElectricField(vectorX, vectorY, time);
+            const fieldMag = getFieldMagnitude(field.x, field.y);
+            
+            if (fieldMag > 0.01) {
+                // Arrow properties
+                const maxArrowLength = 60;
+                const arrowLength = Math.min(fieldMag * arrowScale * 5, maxArrowLength);
+                const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
+                
+                // Arrow shaft
+                const endX = vectorPos.x + Math.cos(arrowAngle) * arrowLength;
+                const endY = vectorPos.y + Math.sin(arrowAngle) * arrowLength;
+                
+                fieldCtx.strokeStyle = '#0066FF'; // Blue color to distinguish from center arrow
+                fieldCtx.lineWidth = 4;
+                fieldCtx.beginPath();
+                fieldCtx.moveTo(vectorPos.x, vectorPos.y);
+                fieldCtx.lineTo(endX, endY);
+                fieldCtx.stroke();
+                
+                // Arrow head
+                const headLength = 12;
+                const headAngle = 0.5;
+                
+                fieldCtx.beginPath();
+                fieldCtx.moveTo(endX, endY);
+                fieldCtx.lineTo(
+                    endX - headLength * Math.cos(arrowAngle - headAngle),
+                    endY - headLength * Math.sin(arrowAngle - headAngle)
+                );
+                fieldCtx.moveTo(endX, endY);
+                fieldCtx.lineTo(
+                    endX - headLength * Math.cos(arrowAngle + headAngle),
+                    endY - headLength * Math.sin(arrowAngle + headAngle)
+                );
+                fieldCtx.stroke();
+            }
+            
+            // Draw position marker
+            fieldCtx.beginPath();
+            fieldCtx.arc(vectorPos.x, vectorPos.y, 4, 0, TWO_PI);
+            fieldCtx.fillStyle = '#0066FF';
+            fieldCtx.fill();
+            fieldCtx.strokeStyle = '#FFFFFF';
+            fieldCtx.lineWidth = 2;
+            fieldCtx.stroke();
+            
+            // Add label - compare single point vs averaged value
+            const averagedFieldMag = sampleFieldAtDistance(25, time);
+            fieldCtx.fillStyle = '#0066FF';
+            fieldCtx.font = 'bold 12px Arial';
+            fieldCtx.textAlign = 'center';
+            fieldCtx.textBaseline = 'bottom';
+            fieldCtx.fillText(`25m: ${fieldMag.toFixed(1)} kV/m (avg: ${averagedFieldMag.toFixed(1)})`, vectorPos.x, vectorPos.y - 10);
         }
         
         // Draw field magnitude plot
@@ -570,8 +722,8 @@
                 magnitudes.push(magnitude);
             }
             
-            // Find max magnitude for scaling
-            const maxMag = Math.max(...magnitudes);
+            // Use fixed Y-axis scaling instead of auto-scaling
+            const maxMag = plotMaxField;
             
             // Draw axes
             plotCtx.strokeStyle = '#333';
@@ -589,9 +741,10 @@
             plotCtx.strokeStyle = '#ddd';
             plotCtx.lineWidth = 1;
             
-            // Vertical grid lines
-            for (let i = 0; i <= 10; i++) {
-                const x = margin + (plotAreaWidth * i / 10);
+            // Vertical grid lines - match 10m intervals
+            for (let i = 0; i <= 5; i++) {
+                const distance = i * 10;
+                const x = margin + (plotAreaWidth * distance / (plotEndDistance - plotStartDistance));
                 plotCtx.beginPath();
                 plotCtx.moveTo(x, margin);
                 plotCtx.lineTo(x, plotHeight - margin);
@@ -629,11 +782,11 @@
             plotCtx.font = '12px Arial';
             plotCtx.textAlign = 'center';
             
-            // X-axis labels
+            // X-axis labels - use 10m intervals
             for (let i = 0; i <= 5; i++) {
-                const distance = plotStartDistance + (plotEndDistance - plotStartDistance) * i / 5;
-                const x = margin + (plotAreaWidth * i / 5);
-                plotCtx.fillText(distance.toFixed(0) + 'm', x, plotHeight - margin + 20);
+                const distance = i * 10; // 0, 10, 20, 30, 40, 50m
+                const x = margin + (plotAreaWidth * distance / (plotEndDistance - plotStartDistance));
+                plotCtx.fillText(distance + 'm', x, plotHeight - margin + 20);
             }
             
             // Y-axis labels
@@ -659,6 +812,23 @@
             plotCtx.textAlign = 'center';
             plotCtx.font = 'bold 16px Arial';
             plotCtx.fillText('Electric Field vs Distance', plotWidth / 2, 30);
+            
+            // Mark conductor position at 6m
+            const conductor6mX = margin + (6 / (plotEndDistance - plotStartDistance)) * plotAreaWidth;
+            plotCtx.strokeStyle = '#FF6600';
+            plotCtx.lineWidth = 2;
+            plotCtx.setLineDash([4, 4]);
+            plotCtx.beginPath();
+            plotCtx.moveTo(conductor6mX, margin);
+            plotCtx.lineTo(conductor6mX, plotHeight - margin);
+            plotCtx.stroke();
+            plotCtx.setLineDash([]);
+            
+            // Label for conductor position
+            plotCtx.fillStyle = '#FF6600';
+            plotCtx.font = '10px Arial';
+            plotCtx.textAlign = 'left';
+            plotCtx.fillText('Conductors', conductor6mX + 2, margin + 15);
         }
         
         // Main render function
@@ -672,9 +842,11 @@
             fieldCtx.fillRect(0, 0, fieldWidth, fieldHeight);
             
             drawGround();
+            drawDistanceScale();
             drawTower();
             drawConductors();
             drawCentralArrow();
+            drawSecondaryArrow();
             
             // Draw plot
             drawFieldPlot();
@@ -771,6 +943,12 @@
         document.getElementById('plotEndSlider').addEventListener('input', function() {
             plotEndDistance = parseInt(this.value);
             document.getElementById('plotEndValue').textContent = this.value;
+            render();
+        });
+        
+        document.getElementById('plotMaxFieldSlider').addEventListener('input', function() {
+            plotMaxField = parseInt(this.value);
+            document.getElementById('plotMaxFieldValue').textContent = this.value;
             render();
         });
         

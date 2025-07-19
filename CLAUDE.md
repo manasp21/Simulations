@@ -70,8 +70,10 @@ This repository contains interactive physics simulations for visualizing electri
 
 **Simplified Version Additional Functions**:
 - `drawCentralArrow()` - Single large arrow at center point showing field vector
-- `drawFieldPlot()` - Real-time distance vs field magnitude plot
+- `drawFieldPlot()` - Real-time distance vs field magnitude plot  
 - `sampleFieldAtDistance()` - Averages field magnitude at 8 points around distance circle
+- `drawSecondaryArrow()` - Blue E-vector at 25m distance for comparison
+- `drawDistanceScale()` - Concentric circles and reference grid for distance visualization
 
 ## File Conventions
 
