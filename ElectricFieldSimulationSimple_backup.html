@@ -861,10 +861,7 @@
             fieldCtx.font = 'bold 11px Arial';
             fieldCtx.textAlign = 'center';
             fieldCtx.textBaseline = 'middle';
-            // Calculate actual distance from center point
-            const centerHeight = towerHeight - 6;
-            const actualDistance = Math.sqrt(vectorX * vectorX + (vectorY - centerHeight) * (vectorY - centerHeight));
-            fieldCtx.fillText(`Ground ${actualDistance.toFixed(1)}m: ${fieldMag.toFixed(3)} kV/m`, vectorPos.x, vectorPos.y - 25);
+            fieldCtx.fillText(`Ground 30m: ${fieldMag.toFixed(3)} kV/m`, vectorPos.x, vectorPos.y - 25);
         }
         
         // Draw field magnitude plot

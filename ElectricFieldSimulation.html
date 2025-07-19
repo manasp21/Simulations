@@ -292,7 +292,7 @@
                 const voltage = peakVoltage * Math.sin(omega * t + phaseRad);
                 
                 // Line charge density (simplified)
-                const lambda = 2 * Math.PI * EPSILON_0 * voltage / Math.log(2 * conductor.y / 0.02);
+                const lambda = 2 * Math.PI * EPSILON_0 * voltage / Math.log(2 * conductor.y / 0.01);
                 
                 // Electric field components (2D approximation)
                 const Er = lambda / (2 * Math.PI * EPSILON_0 * r);
