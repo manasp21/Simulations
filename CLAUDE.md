@@ -11,15 +11,14 @@ This repository contains interactive physics simulations for visualizing electri
 **Self-Contained HTML Simulations**: Each simulation is a complete, standalone HTML file containing embedded CSS styling and JavaScript physics engine. No external dependencies, build systems, or package managers are used.
 
 **Core Components**:
-- `ElectricFieldSimulation.html` - Interactive electric field simulation with full vector field display
-- `ElectricFieldSimulationSimple.html` - Simplified version with central arrow and distance plot analysis
-- `ElectricFieldSimulation_backup.html` - Backup of original simulation
+- `ElectricFieldSimulationSimple.html` - Primary simulation with dual-panel layout featuring central arrow and distance plot analysis for ultra-low field visualization
 
 ## Technical Implementation
 
 **Physics Engine**: Real-time electric field calculations using:
-- Method of images for ground plane effects
-- Line charge density calculations: λᵢ(t) = 2πε₀Vᵢ(t) / ln(2h/a)
+- Conducting cylindrical conductors with proper boundary conditions (E = 0 inside)
+- Non-conducting ground (no image charges or ground plane effects)
+- Line charge density calculations: λᵢ(t) = 2πε₀Vᵢ(t) / ln(2hᵢ/a)
 - Electric field superposition: E(r,t) = Σᵢ₌₁⁶ [λᵢ(t) / (2πε₀)] · (r̂ᵢ / rᵢ)
 - Time-varying voltage: Vᵢ(t) = V_peak × sin(ωt + φᵢ + θ_circuit)
 
@@ -40,10 +39,10 @@ This repository contains interactive physics simulations for visualizing electri
 
 **Development Workflow**: Since files are self-contained HTML, simply edit the file and refresh browser to see changes. No build process or package management needed.
 
-**Simulation Variants**:
-- **Full Version**: Complete vector field visualization across entire simulation area
-- **Simplified Version**: Dual-panel layout with central arrow and distance plot (12m-58m range)
-- **Analysis Focus**: Simplified version emphasizes field behavior at center point and radial distance analysis
+**Current Implementation**:
+- **Primary Simulation**: Dual-panel layout with central arrow and distance plot analysis
+- **Ultra-Low Field Analysis**: Enhanced for analyzing fields in the 12m-58m range with improved sensitivity
+- **Focus Areas**: Central field vector visualization and radial distance field magnitude plotting
 
 **Key Parameters**:
 - Peak Voltage: Real-world transmission line voltages in kV
@@ -68,9 +67,9 @@ This repository contains interactive physics simulations for visualizing electri
 - Event handlers - UI parameter controls
 - `animate()` - Main render loop with configurable update rates
 
-**Simplified Version Additional Functions**:
+**Specialized Visualization Functions**:
 - `drawCentralArrow()` - Single large arrow at center point showing field vector
-- `drawFieldPlot()` - Real-time distance vs field magnitude plot  
+- `drawFieldPlot()` - Real-time distance vs field magnitude plot with ultra-low field sensitivity
 - `sampleFieldAtDistance()` - Averages field magnitude at 8 points around distance circle
 - `drawSecondaryArrow()` - Blue E-vector at 25m distance for comparison
 - `drawDistanceScale()` - Concentric circles and reference grid for distance visualization
@@ -80,4 +79,5 @@ This repository contains interactive physics simulations for visualizing electri
 - HTML files are self-contained with embedded CSS/JS
 - Current implementation uses light theme styling with gradient sky background
 - When creating theme variants, maintain identical DOM structure and JavaScript functionality
-- File naming convention: `ElectricFieldSimulation[Theme].html`
+- File naming convention: `ElectricFieldSimulation[Variant].html`
+- Current focus: Ultra-low field analysis capabilities for educational demonstrations

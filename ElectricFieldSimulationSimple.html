@@ -125,7 +125,7 @@
         <div class="canvas-container">
             <div class="simulation-panel">
                 <div class="panel-title">Central Field Vector</div>
-                <canvas id="fieldCanvas" width="600" height="700"></canvas>
+                <canvas id="fieldCanvas" width="600" height="800"></canvas>
             </div>
             <div class="plot-panel">
                 <div class="panel-title">Field Magnitude vs Distance from Center</div>
@@ -160,12 +160,12 @@
                 <h4>Electrical Parameters</h4>
                 <div class="parameter">
                     <label>Peak Voltage (kV):</label>
-                    <input type="range" id="voltageSlider" min="115" max="765" value="345" step="10">
-                    <span class="value-display" id="voltageValue">345</span>
+                    <input type="range" id="voltageSlider" min="0" max="250" value="115" step="5">
+                    <span class="value-display" id="voltageValue">115</span>
                 </div>
                 <div class="parameter">
                     <label>Frequency (Hz):</label>
-                    <input type="range" id="frequencySlider" min="50" max="60" value="60" step="1">
+                    <input type="range" id="frequencySlider" min="0" max="60" value="60" step="1">
                     <span class="value-display" id="frequencyValue">60</span>
                 </div>
             </div>
@@ -203,7 +203,9 @@
             <p><strong>Vector Analysis:</strong> Center (red), 25m (blue), and ground-level 40m (green) field vectors</p>
             <p><strong>Mathematical Model:</strong></p>
             <div class="formula">
-                E(r,t) = Σᵢ₌₁⁶ [λᵢ(t) / (2πε₀)] · (r̂ᵢ / rᵢ) + E_images(r,t)
+                E(r,t) = Σᵢ₌₁⁶ [λᵢ(t) / (2πε₀)] · (r̂ᵢ / rᵢ) [Conducting cylinders, Non-conducting ground]
+                <br>
+                λᵢ(t) = 2πε₀Vᵢ(t) / ln(2hᵢ/a) | E = 0 inside conductors | No ground images
                 <br>
                 Center cancellation: E₁₂(t) + E₂₁(t) ≈ 0 when φ₂ = φ₁ + 180°
             </div>
@@ -253,7 +255,7 @@
         let phaseOffsetDegrees = 180;
         
         // Electrical parameters
-        let peakVoltage = 345000; // Volts
+        let peakVoltage = 115000; // Volts
         let frequency = 60; // Hz
         let omega = TWO_PI * frequency;
         
@@ -269,7 +271,7 @@
         
         // Calculate conductor positions (hexagonal with opposite phases)
         function calculateConductorPositions() {
-            const hexRadius = 6; // meters
+            const hexRadius = 9; // meters - increased for better label visibility
             const centerHeight = towerHeight - 6; // meters from ground
             
             const positions = [];
@@ -321,13 +323,26 @@
             };
         }
         
-        // Calculate electric field using method of images with improved physics accuracy
+        // Calculate electric field: conducting conductors above non-conducting ground
         function calculateElectricField(worldX, worldY, t) {
             let Ex = 0, Ey = 0;
             
             // Return zero field if point is underground
             if (worldY < 0) {
                 return { x: 0, y: 0 };
+            }
+            
+            // CONDUCTING BOUNDARY CONDITION: E = 0 inside any conductor
+            const conductorRadius = 0.015; // 1.5cm physical conductor radius
+            for (let conductor of conductors) {
+                const dx = worldX - conductor.x;
+                const dy = worldY - conductor.y;
+                const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
+                
+                // Return zero field if inside any conducting cylinder
+                if (distanceToCenter <= conductorRadius) {
+                    return { x: 0, y: 0 };
+                }
             }
             
             conductors.forEach((conductor, index) => {
@@ -341,61 +356,33 @@
                 const dx = worldX - conductor.x;
                 const dy = worldY - conductor.y;
                 const r2 = dx * dx + dy * dy;
-                
-                // Avoid singularity near conductor
-                if (r2 < 0.01) return; // 0.1m minimum distance
-                
                 const r = Math.sqrt(r2);
+                
+                // Skip if too close to conductor surface (already checked above, but safety margin)
+                if (r <= conductorRadius * 1.1) return; // Small safety margin beyond conductor surface
                 
                 // Calculate instantaneous voltage
                 const phaseRad = (conductor.phase + (conductor.circuit === 2 ? phaseOffsetDegrees : 0)) * Math.PI / 180;
                 const voltage = peakVoltage * Math.sin(omega * t + phaseRad);
                 
-                // Improved line charge density calculation for transmission lines
-                const conductorRadius = 0.015; // 1.5cm typical for high voltage conductors
+                // Line charge density for conducting cylinder at voltage V
+                // For cylinder in free space: λ = 2πε₀V / ln(2h/a) where h = height, a = radius
                 const capacitanceCoeff = Math.log(2 * conductor.y / conductorRadius);
                 const lambda = 2 * Math.PI * EPSILON_0 * voltage / capacitanceCoeff;
                 
-                // Electric field from real conductor
-                if (r > 0.1) { // Only calculate if far enough from conductor
-                    const Er = lambda / (2 * Math.PI * EPSILON_0 * r);
-                    const fieldContribX = Er * dx / r / 1000; // Convert to kV/m
-                    const fieldContribY = Er * dy / r / 1000;
-                    
-                    // Apply ultra-smooth distance-based attenuation for perfect stability
-                    const attenuation = Math.exp(-r2 / 50000.0); // Ultra-smooth exponential decay
-                    Ex += fieldContribX * attenuation;
-                    Ey += fieldContribY * attenuation;
-                }
+                // Electric field from conducting cylinder (line charge approximation valid for r >> a)
+                const Er = lambda / (2 * Math.PI * EPSILON_0 * r);
+                const fieldContribX = Er * dx / r / 1000; // Convert to kV/m
+                const fieldContribY = Er * dy / r / 1000;
                 
-                // Image conductor (ground reflection) - perfect conductor boundary condition
-                const dyImage = worldY + conductor.y; // Image conductor position
-                const r2Image = dx * dx + dyImage * dyImage;
+                // Natural 1/r physics from conducting cylinder
+                Ex += fieldContribX;
+                Ey += fieldContribY;
                 
-                if (r2Image > 0.01 && dyImage > 0) { // Ensure image is below ground
-                    const rImage = Math.sqrt(r2Image);
-                    
-                    if (rImage > 0.1) { // Only calculate if far enough from image
-                        // Image conductor has opposite charge
-                        const ErImage = -lambda / (2 * Math.PI * EPSILON_0 * rImage);
-                        const imageContribX = ErImage * dx / rImage / 1000;
-                        const imageContribY = ErImage * dyImage / rImage / 1000;
-                        
-                        // Apply ultra-smooth distance-based attenuation
-                        const attenuationImage = Math.exp(-r2Image / 50000.0); // Ultra-smooth exponential decay
-                        Ex += imageContribX * attenuationImage;
-                        Ey += imageContribY * attenuationImage;
-                    }
-                }
+                // Non-conducting ground assumption - no image conductors
             });
             
-            // Additional validation - limit unrealistic field values
-            const fieldMagnitude = Math.sqrt(Ex * Ex + Ey * Ey);
-            if (fieldMagnitude > 200) { // Limit to 200 kV/m maximum
-                const scale = 200 / fieldMagnitude;
-                Ex *= scale;
-                Ey *= scale;
-            }
+            // Natural electric field physics - no artificial limitations
             
             return { x: Ex, y: Ey };
         }
@@ -470,7 +457,7 @@
             fieldCtx.lineWidth = 3;
             fieldCtx.strokeStyle = '#444';
             
-            const hexRadius = 6;
+            const hexRadius = 9; // Match conductor spacing
             for (let i = 0; i < 6; i++) {
                 const angle = (i * 60 - 90) * Math.PI / 180;
                 const endX = Math.cos(angle) * hexRadius * 0.8;
@@ -519,11 +506,22 @@
                 fieldCtx.lineWidth = 2;
                 fieldCtx.stroke();
                 
+                // Draw label outside the conductor circle for visibility
                 fieldCtx.fillStyle = isActive ? '#fff' : '#666';
-                fieldCtx.font = 'bold 10px Arial';
+                fieldCtx.font = 'bold 12px Arial';
                 fieldCtx.textAlign = 'center';
                 fieldCtx.textBaseline = 'middle';
-                fieldCtx.fillText(conductor.label, pos.x, pos.y);
+                
+                // Position label outside conductor circle (18px offset)
+                const labelOffset = 18;
+                const labelX = pos.x + labelOffset;
+                const labelY = pos.y - labelOffset;
+                
+                // Add black outline for better visibility
+                fieldCtx.strokeStyle = '#000';
+                fieldCtx.lineWidth = 3;
+                fieldCtx.strokeText(conductor.label, labelX, labelY);
+                fieldCtx.fillText(conductor.label, labelX, labelY);
             });
         }
         
@@ -603,23 +601,10 @@
                 // Choose best label position based on circle size and canvas bounds
                 let labelX, labelY;
                 
-                // For smaller circles (10m, 20m), label at top-right
-                if (distance <= 20) {
-                    const angle = -Math.PI / 4; // 45 degrees up-right
-                    labelX = centerPos.x + Math.cos(angle) * radius;
-                    labelY = centerPos.y + Math.sin(angle) * radius;
-                }
-                // For medium circles (30m), label at top
-                else if (distance <= 30) {
-                    labelX = centerPos.x + 15; // Slightly right of center
-                    labelY = centerPos.y - radius;
-                }
-                // For larger circles (40m, 50m), label at bottom-right
-                else {
-                    const angle = Math.PI / 4; // 45 degrees down-right
-                    labelX = centerPos.x + Math.cos(angle) * radius;
-                    labelY = centerPos.y + Math.sin(angle) * radius;
-                }
+                // Consistent positioning for ALL distance labels - same direction as 40m
+                const angle = Math.PI / 4; // 45 degrees down-right (same as 40m, 50m)
+                labelX = centerPos.x + Math.cos(angle) * radius;
+                labelY = centerPos.y + Math.sin(angle) * radius;
                 
                 // Only draw label if it's within reasonable bounds
                 if (labelX > 20 && labelX < fieldWidth - 20 && 
@@ -847,16 +832,7 @@
             fieldCtx.lineWidth = 2;
             fieldCtx.stroke();
             
-            // Add label
-            fieldCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            fieldCtx.beginPath();
-            if (fieldCtx.roundRect) {
-                fieldCtx.roundRect(vectorPos.x - 35, vectorPos.y - 35, 70, 20, 3);
-            } else {
-                fieldCtx.rect(vectorPos.x - 35, vectorPos.y - 35, 70, 20);
-            }
-            fieldCtx.fill();
-            
+            // Add label - no background
             fieldCtx.fillStyle = '#00AA00';
             fieldCtx.font = 'bold 11px Arial';
             fieldCtx.textAlign = 'center';
@@ -891,24 +867,7 @@
                 magnitudes.push(magnitude);
             }
             
-            // Apply gradient smoothing to eliminate discontinuities
-            for (let i = 1; i < magnitudes.length - 1; i++) {
-                const prevMag = magnitudes[i - 1];
-                const currMag = magnitudes[i];
-                const nextMag = magnitudes[i + 1];
-                
-                // Check for unrealistic jumps (gradient validation)
-                const gradientBefore = Math.abs(currMag - prevMag);
-                const gradientAfter = Math.abs(nextMag - currMag);
-                const maxAllowedGradient = 0.005; // Stricter limit for gradient changes
-                
-                // If gradient is too steep, apply aggressive smoothing
-                if (gradientBefore > maxAllowedGradient || gradientAfter > maxAllowedGradient) {
-                    // Apply Gaussian-like smoothing for ultra-smooth curves
-                    const weight1 = 0.25, weight2 = 0.5, weight3 = 0.25;
-                    magnitudes[i] = prevMag * weight1 + currMag * weight2 + nextMag * weight3;
-                }
-            }
+            // Natural field data - no artificial smoothing modifications
             
             // Use fixed Y-axis scaling instead of auto-scaling
             const maxMag = plotMaxField;
@@ -1009,14 +968,14 @@
             plotCtx.font = 'bold 16px Arial';
             plotCtx.fillText('Electric Field vs Distance', plotWidth / 2, 30);
             
-            // Mark conductor position at 6m
-            const conductor6mX = margin + (6 / (plotEndDistance - plotStartDistance)) * plotAreaWidth;
+            // Mark conductor position at 9m
+            const conductor9mX = margin + (9 / (plotEndDistance - plotStartDistance)) * plotAreaWidth;
             plotCtx.strokeStyle = '#FF6600';
             plotCtx.lineWidth = 2;
             plotCtx.setLineDash([4, 4]);
             plotCtx.beginPath();
-            plotCtx.moveTo(conductor6mX, margin);
-            plotCtx.lineTo(conductor6mX, plotHeight - margin);
+            plotCtx.moveTo(conductor9mX, margin);
+            plotCtx.lineTo(conductor9mX, plotHeight - margin);
             plotCtx.stroke();
             plotCtx.setLineDash([]);
             
@@ -1024,7 +983,7 @@
             plotCtx.fillStyle = '#FF6600';
             plotCtx.font = '10px Arial';
             plotCtx.textAlign = 'left';
-            plotCtx.fillText('Conductors', conductor6mX + 2, margin + 15);
+            plotCtx.fillText('Conductors', conductor9mX + 2, margin + 15);
         }
         
         // Main render function
@@ -1039,7 +998,6 @@
             
             drawGround();
             drawDistanceScale();
-            drawLinearDistanceMarkers();
             drawTower();
             drawConductors();
             drawCentralArrow();
