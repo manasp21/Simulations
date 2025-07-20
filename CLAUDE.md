@@ -12,6 +12,9 @@ This repository contains interactive physics simulations for visualizing electri
 
 **Core Components**:
 - `ElectricFieldSimulationSimple.html` - Primary simulation with dual-panel layout featuring central arrow and distance plot analysis for ultra-low field visualization
+- `transmission_line_animation.py` - Manim animation script for educational visualization of electric field physics
+- `test_manim_basic.py` - Basic compatibility test script for Manim setup
+- `README_manim.md` - Documentation for Manim animation setup and usage
 
 ## Technical Implementation
 
@@ -37,7 +40,9 @@ This repository contains interactive physics simulations for visualizing electri
 
 **Running Simulations**: Open HTML files directly in any modern web browser. No installation or setup required.
 
-**Development Workflow**: Since files are self-contained HTML, simply edit the file and refresh browser to see changes. No build process or package management needed.
+**Development Workflow**: 
+- **HTML Simulations**: Edit the file and refresh browser to see changes. No build process needed.
+- **Manim Animations**: Test with `manim test_manim_basic.py BasicTest -p`, then render with `manim transmission_line_animation.py TransmissionLineFieldAnimation -qh`
 
 **Current Implementation**:
 - **Primary Simulation**: Dual-panel layout with central arrow and distance plot analysis
@@ -45,8 +50,8 @@ This repository contains interactive physics simulations for visualizing electri
 - **Focus Areas**: Central field vector visualization and radial distance field magnitude plotting
 
 **Key Parameters**:
-- Peak Voltage: Real-world transmission line voltages in kV
-- Frequency: Power system frequency (50/60 Hz)
+- Peak Voltage: 0-250 kV (was 115-765 kV, updated for educational range)
+- Frequency: 0-60 Hz (includes static field analysis at 0 Hz)
 - Phase Offset: Circuit 2 relative to Circuit 1 (0-360°)
 - Vector Spacing/Scale: Visualization density and arrow size
 
@@ -56,7 +61,9 @@ This repository contains interactive physics simulations for visualizing electri
 
 **Physics Accuracy**: Mathematical models must remain scientifically accurate for educational use. Key constants:
 - EPSILON_0 = 8.854e-12 F/m (vacuum permittivity)
-- Conductor arrangements: Hexagonal configuration with 6m radius, opposing phase arrangement
+- Conductor arrangements: Hexagonal configuration with 9m radius (increased for label visibility), opposing phase arrangement
+- Tower height: 50m with conductors at 44m height
+- Conductor radius: 1.5cm for realistic transmission line modeling
 
 **Performance**: Simulations run real-time field calculations on vector grids. Optimize for smooth animation while maintaining calculation accuracy.
 
@@ -70,9 +77,10 @@ This repository contains interactive physics simulations for visualizing electri
 **Specialized Visualization Functions**:
 - `drawCentralArrow()` - Single large arrow at center point showing field vector
 - `drawFieldPlot()` - Real-time distance vs field magnitude plot with ultra-low field sensitivity
-- `sampleFieldAtDistance()` - Averages field magnitude at 8 points around distance circle
+- `sampleFieldAtDistance()` - Averages field magnitude at above-ground points only (fixed underground sampling issue)
 - `drawSecondaryArrow()` - Blue E-vector at 25m distance for comparison
 - `drawDistanceScale()` - Concentric circles and reference grid for distance visualization
+- Distance labels (10m, 20m, 30m, 40m, 50m) positioned consistently in bottom-right direction
 
 ## File Conventions
 
@@ -93,3 +101,35 @@ This repository contains interactive physics simulations for visualizing electri
 - Remove obsolete simulation variants to maintain repository cleanliness
 
 **No Build System**: Since simulations are self-contained HTML files, there are no build commands, test runners, or package management scripts to execute.
+
+## Manim Animation Development
+
+**Setup Requirements**:
+```bash
+pip install manim numpy
+```
+
+**Common Commands**:
+- **Test compatibility**: `manim test_manim_basic.py BasicTest -p`
+- **Quick preview**: `manim transmission_line_animation.py TransmissionLineFieldAnimation -ql`
+- **High quality render**: `manim transmission_line_animation.py TransmissionLineFieldAnimation -qh`
+- **Check syntax**: `manim transmission_line_animation.py TransmissionLineFieldAnimation --dry_run`
+
+**Animation Architecture**:
+- 5 educational scenes: system setup, voltage phasors, field animation, field plotting, parameter studies
+- Converts HTML simulation physics into dynamic educational visualization
+- Uses same electric field calculations with conducting cylinders above non-conducting ground
+
+**Known Compatibility Issues**:
+- Color constants (CYAN, GRAY, YELLOW, ORANGE) defined as hex values for compatibility
+- Avoid modifying `self.time` property (Manim read-only)
+- Use `DEGREES = PI/180` for angle conversions
+
+## Physics Model Details
+
+**Critical Implementation Notes**:
+- **Conducting Boundary Condition**: Field calculation returns zero inside conductor radius (E = 0)
+- **Non-Conducting Ground**: No image charges or artificial ground effects
+- **Fixed Field Sampling**: Underground points excluded from distance averaging to prevent artificial discontinuities
+- **Natural 1/r Physics**: No artificial exponential attenuation or field limiting that creates unphysical kinks
+- **Conductor Labels**: A1, B1, C1, A2, B2, C2 positioned outside conductor circles with black outlines for visibility

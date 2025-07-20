@@ -1,12 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)",
-      "Bash(cp:*)",
-      "Bash(mcp list:*)",
-      "Bash(mcp:*)",
-      "WebFetch(domain:docs.manim.community)",
-      "WebFetch(domain:manim-physics.readthedocs.io)"
+      "Bash(ls:*)"
     ],
     "deny": []
   }

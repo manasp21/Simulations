@@ -138,11 +138,6 @@
                 <h4>Animation Control</h4>
                 <button id="playPauseBtn">Pause</button>
                 <button id="resetBtn">Reset</button>
-                <div class="parameter">
-                    <label>Visual Update Rate (Hz):</label>
-                    <input type="range" id="updateRateSlider" min="5" max="60" value="30" step="5">
-                    <span class="value-display" id="updateRateValue">30</span>
-                </div>
             </div>
             
             <div class="control-group">
@@ -159,11 +154,6 @@
             <div class="control-group">
                 <h4>Electrical Parameters</h4>
                 <div class="parameter">
-                    <label>Peak Voltage (kV):</label>
-                    <input type="range" id="voltageSlider" min="0" max="250" value="115" step="5">
-                    <span class="value-display" id="voltageValue">115</span>
-                </div>
-                <div class="parameter">
                     <label>Frequency (Hz):</label>
                     <input type="range" id="frequencySlider" min="0" max="60" value="60" step="1">
                     <span class="value-display" id="frequencyValue">60</span>
@@ -172,11 +162,6 @@
             
             <div class="control-group">
                 <h4>Visualization</h4>
-                <div class="parameter">
-                    <label>Arrow Scale:</label>
-                    <input type="range" id="arrowScaleSlider" min="0.5" max="5" value="2" step="0.1">
-                    <span class="value-display" id="arrowScaleValue">2</span>
-                </div>
                 <div class="parameter">
                     <label>Plot Range Start (m):</label>
                     <input type="range" id="plotStartSlider" min="0" max="20" value="0" step="1">
@@ -255,7 +240,7 @@
         let phaseOffsetDegrees = 180;
         
         // Electrical parameters
-        let peakVoltage = 115000; // Volts
+        let peakVoltage = 30000; // Volts (Fixed at 30 kV)
         let frequency = 60; // Hz
         let omega = TWO_PI * frequency;
         
@@ -392,7 +377,7 @@
             return Math.sqrt(Ex * Ex + Ey * Ey);
         }
         
-        // Sample field at specific distance from center
+        // Sample field at specific distance from center along 45-degree line
         function sampleFieldAtDistance(distance, t) {
             const centerHeight = towerHeight - 6;
             
@@ -402,27 +387,17 @@
                 return getFieldMagnitude(field.x, field.y);
             }
             
-            // For distance > 0, sample around circle and average only above-ground points
-            const numSamples = 8; // Sample at 8 points around circle
-            let totalMag = 0;
-            let validSamples = 0;
+            // Sample along 315-degree line (southeast direction) to avoid conductors
+            const angle = 315 * Math.PI / 180; // 315 degrees
+            const x = Math.cos(angle) * distance;
+            const y = centerHeight + Math.sin(angle) * distance;
             
-            for (let i = 0; i < numSamples; i++) {
-                const angle = (i / numSamples) * TWO_PI;
-                const x = Math.cos(angle) * distance;
-                const y = centerHeight + Math.sin(angle) * distance;
-                
-                // Skip underground points to avoid artificial averaging with zeros
-                if (y <= 0) continue;
-                
-                const field = calculateElectricField(x, y, t);
-                const magnitude = getFieldMagnitude(field.x, field.y);
-                totalMag += magnitude;
-                validSamples++;
-            }
+            // Safety check for underground points
+            if (y <= 0) return 0;
             
-            // Return average of only valid (above-ground) samples
-            return validSamples > 0 ? totalMag / validSamples : 0;
+            // Single point sampling along the line - no averaging needed
+            const field = calculateElectricField(x, y, t);
+            return getFieldMagnitude(field.x, field.y);
         }
         
         // Draw transmission tower
@@ -484,6 +459,24 @@
             
             fieldCtx.fillStyle = '#228B22';
             fieldCtx.fillRect(0, groundLevel, fieldWidth, 5);
+            
+            // Add "Non-conducting Ground" label
+            const centerX = fieldWidth / 2;
+            const labelY = groundLevel + 30;
+            
+            // Label background for better readability
+            fieldCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            fieldCtx.fillRect(centerX - 90, labelY - 12, 180, 24);
+            fieldCtx.strokeStyle = '#333';
+            fieldCtx.lineWidth = 1;
+            fieldCtx.strokeRect(centerX - 90, labelY - 12, 180, 24);
+            
+            // Label text
+            fieldCtx.fillStyle = '#333';
+            fieldCtx.font = 'bold 16px Arial';
+            fieldCtx.textAlign = 'center';
+            fieldCtx.textBaseline = 'middle';
+            fieldCtx.fillText('Non-conducting Ground', centerX, labelY);
         }
         
         // Draw conductors
@@ -543,7 +536,7 @@
             if (centerFieldMag > 0.001) { // Lower threshold for ultra-low field analysis
                 // Arrow properties
                 const maxArrowLength = 100;
-                const arrowLength = Math.min(centerFieldMag * arrowScale * 100, maxArrowLength); // Increased scaling for low-field visibility
+                const arrowLength = Math.min(centerFieldMag * arrowScale * 100, maxArrowLength); // Base scale reference (1x)
                 const arrowAngle = Math.atan2(-centerField.y, centerField.x); // Negative y for screen coords
                 
                 // Arrow shaft
@@ -730,7 +723,7 @@
             if (fieldMag > 0.001) { // Lower threshold for ultra-low field analysis
                 // Arrow properties
                 const maxArrowLength = 60;
-                const arrowLength = Math.min(fieldMag * arrowScale * 50, maxArrowLength); // Increased scaling for low-field visibility
+                const arrowLength = Math.min(fieldMag * arrowScale * 1000, maxArrowLength); // 10x amplification vs red arrow
                 const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
                 
                 // Arrow shaft
@@ -797,7 +790,7 @@
             if (fieldMag > 0.0001) { // Even lower threshold for ultra-low field analysis
                 // Arrow properties
                 const maxArrowLength = 80;
-                const arrowLength = Math.min(fieldMag * arrowScale * 500, maxArrowLength); // Much higher scale for ultra-low fields
+                const arrowLength = Math.min(fieldMag * arrowScale * 10000, maxArrowLength); // 100x amplification vs red arrow
                 const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
                 
                 // Arrow shaft
@@ -846,7 +839,106 @@
             // Calculate actual distance from center point
             const centerHeight = towerHeight - 6;
             const actualDistance = Math.sqrt(vectorX * vectorX + (vectorY - centerHeight) * (vectorY - centerHeight));
-            fieldCtx.fillText(`Ground ${actualDistance.toFixed(1)}m: ${fieldMag.toFixed(3)} kV/m`, vectorPos.x, vectorPos.y - 25);
+            fieldCtx.fillText(`${actualDistance.toFixed(1)}m: ${fieldMag.toFixed(3)} kV/m`, vectorPos.x, vectorPos.y - 25);
+        }
+        
+        // Draw plot sampling path indicator
+        function drawPlotPath() {
+            const centerHeight = towerHeight - 6;
+            const centerPos = worldToScreen(0, centerHeight);
+            const angle = 315 * Math.PI / 180; // 315 degrees
+            
+            // Draw dashed line showing sampling path
+            fieldCtx.strokeStyle = '#FF8C00'; // Orange color
+            fieldCtx.lineWidth = 2;
+            fieldCtx.setLineDash([8, 4]); // Dashed line pattern
+            
+            // Draw line from center to maximum plot distance
+            const maxDistance = plotEndDistance;
+            const endX = Math.cos(angle) * maxDistance;
+            const endY = centerHeight + Math.sin(angle) * maxDistance;
+            const endPos = worldToScreen(endX, endY);
+            
+            fieldCtx.beginPath();
+            fieldCtx.moveTo(centerPos.x, centerPos.y);
+            fieldCtx.lineTo(endPos.x, endPos.y);
+            fieldCtx.stroke();
+            
+            // Reset line dash
+            fieldCtx.setLineDash([]);
+            
+            // Draw sample point markers at key distances
+            const sampleDistances = [10, 20, 30, 40, 50];
+            
+            sampleDistances.forEach(distance => {
+                if (distance <= maxDistance) {
+                    const sampleX = Math.cos(angle) * distance;
+                    const sampleY = centerHeight + Math.sin(angle) * distance;
+                    const samplePos = worldToScreen(sampleX, sampleY);
+                    
+                    // Draw small circle marker
+                    fieldCtx.fillStyle = '#FF8C00';
+                    fieldCtx.beginPath();
+                    fieldCtx.arc(samplePos.x, samplePos.y, 3, 0, TWO_PI);
+                    fieldCtx.fill();
+                    
+                    // Draw white outline for visibility
+                    fieldCtx.strokeStyle = '#FFFFFF';
+                    fieldCtx.lineWidth = 1;
+                    fieldCtx.stroke();
+                }
+            });
+            
+            // Add label for the path
+            const labelDistance = 15; // Position label at 15m along the line
+            const labelX = Math.cos(angle) * labelDistance;
+            const labelY = centerHeight + Math.sin(angle) * labelDistance;
+            const labelPos = worldToScreen(labelX, labelY);
+            
+            // Label background
+            fieldCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            fieldCtx.fillRect(labelPos.x - 35, labelPos.y - 10, 70, 15);
+            fieldCtx.strokeStyle = '#FF8C00';
+            fieldCtx.lineWidth = 1;
+            fieldCtx.strokeRect(labelPos.x - 35, labelPos.y - 10, 70, 15);
+            
+            // Label text
+            fieldCtx.fillStyle = '#FF8C00';
+            fieldCtx.font = 'bold 10px Arial';
+            fieldCtx.textAlign = 'center';
+            fieldCtx.textBaseline = 'middle';
+            fieldCtx.fillText('Plot Path', labelPos.x, labelPos.y - 2);
+        }
+        
+        // Draw arrow scaling legend
+        function drawScalingLegend() {
+            const legendX = fieldWidth - 20;
+            const legendY = 30;
+            
+            // Background
+            fieldCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            fieldCtx.fillRect(legendX - 140, legendY - 15, 135, 70);
+            fieldCtx.strokeStyle = '#333';
+            fieldCtx.lineWidth = 1;
+            fieldCtx.strokeRect(legendX - 140, legendY - 15, 135, 70);
+            
+            // Title
+            fieldCtx.fillStyle = '#333';
+            fieldCtx.font = 'bold 12px Arial';
+            fieldCtx.textAlign = 'left';
+            fieldCtx.fillText('Arrow Scale:', legendX - 135, legendY);
+            
+            // Red arrow info
+            fieldCtx.fillStyle = '#FF0000';
+            fieldCtx.fillText('■ Red: 1x (Base)', legendX - 135, legendY + 15);
+            
+            // Blue arrow info  
+            fieldCtx.fillStyle = '#0066FF';
+            fieldCtx.fillText('■ Blue: 10x', legendX - 135, legendY + 30);
+            
+            // Green arrow info
+            fieldCtx.fillStyle = '#00AA00';
+            fieldCtx.fillText('■ Green: 100x', legendX - 135, legendY + 45);
         }
         
         // Draw field magnitude plot
@@ -864,11 +956,11 @@
             // Sample field at different distances
             const distances = [];
             const magnitudes = [];
-            const numSamples = 200; // Ultra-smooth curves
+            const numSamples = 5000; // Ultra-high resolution for perfect Y-axis scaling
             
             for (let i = 0; i < numSamples; i++) {
                 const distance = plotStartDistance + (plotEndDistance - plotStartDistance) * i / (numSamples - 1);
-                const magnitude = sampleFieldAtDistance(distance, time);
+                const magnitude = sampleFieldAtDistance(distance, 0); // Fixed time for consistent plot data
                 distances.push(distance);
                 magnitudes.push(magnitude);
             }
@@ -920,16 +1012,14 @@
             
             for (let i = 0; i < distances.length; i++) {
                 const x = margin + (distances[i] - plotStartDistance) / (plotEndDistance - plotStartDistance) * plotAreaWidth;
-                const normalizedMag = Math.min(magnitudes[i] / maxMag, 1.0); // Clamp to prevent overflow
+                const normalizedMag = magnitudes[i] / maxMag; // Pure Y-axis scaling, no clipping
                 const y = plotHeight - margin - normalizedMag * plotAreaHeight;
                 
-                // Ensure coordinates are within bounds
-                if (x >= margin && x <= plotWidth - margin && y >= margin && y <= plotHeight - margin) {
-                    if (i === 0) {
-                        plotCtx.moveTo(x, y);
-                    } else {
-                        plotCtx.lineTo(x, y);
-                    }
+                // Draw all points - let canvas handle clipping naturally
+                if (i === 0) {
+                    plotCtx.moveTo(x, y);
+                } else {
+                    plotCtx.lineTo(x, y);
                 }
             }
             plotCtx.stroke();
@@ -1004,11 +1094,13 @@
             
             drawGround();
             drawDistanceScale();
+            drawPlotPath();
             drawTower();
             drawConductors();
             drawCentralArrow();
             drawSecondaryArrow();
             drawGroundLevelArrow();
+            drawScalingLegend();
         }
         
         // Animation loop
@@ -1070,11 +1162,6 @@
             drawFieldPlot();
         });
         
-        document.getElementById('updateRateSlider').addEventListener('input', function() {
-            updateRate = parseInt(this.value);
-            updateInterval = 1000 / updateRate;
-            document.getElementById('updateRateValue').textContent = this.value;
-        });
         
         document.getElementById('phaseOffsetSlider').addEventListener('input', function() {
             phaseOffsetDegrees = parseInt(this.value);
@@ -1083,12 +1170,6 @@
             drawFieldPlot();
         });
         
-        document.getElementById('voltageSlider').addEventListener('input', function() {
-            peakVoltage = parseInt(this.value) * 1000;
-            document.getElementById('voltageValue').textContent = this.value;
-            render();
-            drawFieldPlot();
-        });
         
         document.getElementById('frequencySlider').addEventListener('input', function() {
             frequency = parseInt(this.value);
@@ -1096,11 +1177,6 @@
             document.getElementById('frequencyValue').textContent = this.value;
         });
         
-        document.getElementById('arrowScaleSlider').addEventListener('input', function() {
-            arrowScale = parseFloat(this.value);
-            document.getElementById('arrowScaleValue').textContent = this.value;
-            render();
-        });
         
         document.getElementById('plotStartSlider').addEventListener('input', function() {
             plotStartDistance = parseInt(this.value);
