@@ -402,21 +402,27 @@
                 return getFieldMagnitude(field.x, field.y);
             }
             
-            // For distance > 0, sample around circle and average
+            // For distance > 0, sample around circle and average only above-ground points
             const numSamples = 8; // Sample at 8 points around circle
             let totalMag = 0;
+            let validSamples = 0;
             
             for (let i = 0; i < numSamples; i++) {
                 const angle = (i / numSamples) * TWO_PI;
                 const x = Math.cos(angle) * distance;
                 const y = centerHeight + Math.sin(angle) * distance;
                 
+                // Skip underground points to avoid artificial averaging with zeros
+                if (y <= 0) continue;
+                
                 const field = calculateElectricField(x, y, t);
                 const magnitude = getFieldMagnitude(field.x, field.y);
                 totalMag += magnitude;
+                validSamples++;
             }
             
-            return totalMag / numSamples; // Average magnitude
+            // Return average of only valid (above-ground) samples
+            return validSamples > 0 ? totalMag / validSamples : 0;
         }
         
         // Draw transmission tower
