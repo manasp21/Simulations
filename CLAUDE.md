@@ -81,3 +81,15 @@ This repository contains interactive physics simulations for visualizing electri
 - When creating theme variants, maintain identical DOM structure and JavaScript functionality
 - File naming convention: `ElectricFieldSimulation[Variant].html`
 - Current focus: Ultra-low field analysis capabilities for educational demonstrations
+
+## Git Workflow
+
+**Current State**: Repository tracks a single active simulation file (`ElectricFieldSimulationSimple.html`) with periodic cleanup of outdated variants.
+
+**Development Pattern**: 
+- Make incremental improvements to the active simulation
+- Test changes by opening HTML file in browser
+- Commit functional enhancements with descriptive messages
+- Remove obsolete simulation variants to maintain repository cleanliness
+
+**No Build System**: Since simulations are self-contained HTML files, there are no build commands, test runners, or package management scripts to execute.
