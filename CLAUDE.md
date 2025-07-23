@@ -46,14 +46,17 @@ This repository contains interactive physics simulations for visualizing electri
 
 **Current Implementation**:
 - **Primary Simulation**: Dual-panel layout with central arrow and distance plot analysis
-- **Ultra-Low Field Analysis**: Enhanced for analyzing fields in the 12m-58m range with improved sensitivity
-- **Focus Areas**: Central field vector visualization and radial distance field magnitude plotting
+- **Multi-Scale Field Visualization**: Three arrows with amplification factors - Red (1x), Blue (10x), Green (100x)
+- **Ultra-High Resolution Plotting**: 5000-point sampling with pure Y-axis scaling control
+- **Southeast Plot Path**: 315° diagonal sampling to avoid conductor interference
+- **Fixed Time Analysis**: Plot uses t=0 for consistent field data regardless of animation state
 
 **Key Parameters**:
-- Peak Voltage: 0-250 kV (was 115-765 kV, updated for educational range)
-- Frequency: 0-60 Hz (includes static field analysis at 0 Hz)
+- Peak Voltage: Fixed at 30kV for educational demonstrations
+- Frequency: 0-60 Hz (includes static field analysis at 0 Hz) 
 - Phase Offset: Circuit 2 relative to Circuit 1 (0-360°)
-- Vector Spacing/Scale: Visualization density and arrow size
+- Plot Max Field: Pure Y-axis scaling slider (0.1-5 kV/m, default 2 kV/m)
+- Plot Range: Configurable distance sampling (0-50m default)
 
 ## Development Guidelines
 
@@ -75,12 +78,14 @@ This repository contains interactive physics simulations for visualizing electri
 - `animate()` - Main render loop with configurable update rates
 
 **Specialized Visualization Functions**:
-- `drawCentralArrow()` - Single large arrow at center point showing field vector
-- `drawFieldPlot()` - Real-time distance vs field magnitude plot with ultra-low field sensitivity
-- `sampleFieldAtDistance()` - Averages field magnitude at above-ground points only (fixed underground sampling issue)
-- `drawSecondaryArrow()` - Blue E-vector at 25m distance for comparison
-- `drawDistanceScale()` - Concentric circles and reference grid for distance visualization
-- Distance labels (10m, 20m, 30m, 40m, 50m) positioned consistently in bottom-right direction
+- `drawCentralArrow()` - Red arrow at center showing field magnitude × 1x amplification
+- `drawSecondaryArrow()` - Blue arrow at 25m lateral position with 10x amplification  
+- `drawGroundLevelArrow()` - Green arrow at 48.7m ground position with 100x amplification
+- `drawFieldPlot()` - Ultra-high resolution distance vs field plot (5000 points) with fixed t=0 sampling
+- `sampleFieldAtDistance()` - Single-point sampling along 315° diagonal path to avoid conductors
+- `drawPlotPath()` - Visual indicator showing southeast sampling trajectory
+- `drawScalingLegend()` - Arrow amplification reference (Red:1x, Blue:10x, Green:100x)
+- `drawDistanceScale()` - Concentric circles with consistent 45° labeling
 
 ## File Conventions
 
@@ -129,7 +134,10 @@ pip install manim numpy
 
 **Critical Implementation Notes**:
 - **Conducting Boundary Condition**: Field calculation returns zero inside conductor radius (E = 0)
-- **Non-Conducting Ground**: No image charges or artificial ground effects
-- **Fixed Field Sampling**: Underground points excluded from distance averaging to prevent artificial discontinuities
-- **Natural 1/r Physics**: No artificial exponential attenuation or field limiting that creates unphysical kinks
+- **Non-Conducting Ground**: No image charges or artificial ground effects - clearly labeled in simulation
+- **Plot Max Field Slider**: Pure Y-axis scaling control - NEVER calls `render()` to avoid disrupting arrow animation
+- **Time Independence**: Plot sampling uses fixed t=0 to prevent data changes during slider adjustments
+- **Arrow Amplification**: Each arrow uses local field value with specific amplification (1x, 10x, 100x) for multi-scale analysis
+- **Southeast Plot Path**: 315° diagonal sampling avoids conductor peaks while maintaining physics accuracy
+- **Ultra-High Resolution**: 5000-point sampling eliminates visual artifacts during Y-axis scaling
 - **Conductor Labels**: A1, B1, C1, A2, B2, C2 positioned outside conductor circles with black outlines for visibility
