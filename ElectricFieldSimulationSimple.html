@@ -174,8 +174,8 @@
                 </div>
                 <div class="parameter">
                     <label>Plot Max Field (kV/m):</label>
-                    <input type="range" id="plotMaxFieldSlider" min="0.1" max="5" value="0.2" step="0.1">
-                    <span class="value-display" id="plotMaxFieldValue">0.2</span>
+                    <input type="range" id="plotMaxFieldSlider" min="0.1" max="5" value="2" step="0.1">
+                    <span class="value-display" id="plotMaxFieldValue">2</span>
                 </div>
             </div>
         </div>
@@ -248,7 +248,7 @@
         let arrowScale = 2;
         let plotStartDistance = 0; // meters
         let plotEndDistance = 50; // meters
-        let plotMaxField = 0.2; // kV/m - ultra-low field for cancellation detail
+        let plotMaxField = 2; // kV/m - default field range for general analysis
         
         // Plot data storage
         let plotData = [];
@@ -466,10 +466,10 @@
             
             // Label background for better readability
             fieldCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            fieldCtx.fillRect(centerX - 90, labelY - 12, 180, 24);
+            fieldCtx.fillRect(centerX - 96, labelY - 12, 192, 24);
             fieldCtx.strokeStyle = '#333';
             fieldCtx.lineWidth = 1;
-            fieldCtx.strokeRect(centerX - 90, labelY - 12, 180, 24);
+            fieldCtx.strokeRect(centerX - 96, labelY - 12, 192, 24);
             
             // Label text
             fieldCtx.fillStyle = '#333';
@@ -773,10 +773,10 @@
             fieldCtx.fillText(`25m: ${fieldMag.toFixed(3)} kV/m (avg: ${averagedFieldMag.toFixed(3)})`, vectorPos.x, vectorPos.y - 10);
         }
         
-        // Draw ground-level E-vector at 30m from center  
+        // Draw ground-level E-vector at 48.7m from center  
         function drawGroundLevelArrow() {
             const groundHeight = 2; // 2m above ground for safety analysis
-            const distance = 30; // 30m from center (visible within canvas)
+            const distance = 30; // 30m horizontal distance (actual distance = 48.7m)
             const angle = 35 * Math.PI / 180; // 35 degrees (bottom-right, visible position)
             
             const vectorX = Math.cos(angle) * distance;
@@ -1195,8 +1195,7 @@
         document.getElementById('plotMaxFieldSlider').addEventListener('input', function() {
             plotMaxField = parseFloat(this.value);
             document.getElementById('plotMaxFieldValue').textContent = this.value;
-            render();
-            drawFieldPlot();
+            drawFieldPlot(); // Pure Y-axis scaling - no need to redraw arrows
         });
         
         // Initial render and start animation
