@@ -11,10 +11,8 @@ This repository contains interactive physics simulations for visualizing electri
 **Self-Contained HTML Simulations**: Each simulation is a complete, standalone HTML file containing embedded CSS styling and JavaScript physics engine. No external dependencies, build systems, or package managers are used.
 
 **Core Components**:
-- `ElectricFieldSimulationSimple.html` - Primary simulation with dual-panel layout featuring central arrow and distance plot analysis for ultra-low field visualization
-- `transmission_line_animation.py` - Manim animation script for educational visualization of electric field physics
-- `test_manim_basic.py` - Basic compatibility test script for Manim setup
-- `README_manim.md` - Documentation for Manim animation setup and usage
+- `ElectricFieldSimulationSimple.html` - Complete simulation with dual-panel layout featuring central arrow and distance plot analysis for ultra-low field visualization
+- `README.md` - Basic repository description
 
 ## Technical Implementation
 
@@ -38,11 +36,10 @@ This repository contains interactive physics simulations for visualizing electri
 
 ## Usage
 
-**Running Simulations**: Open HTML files directly in any modern web browser. No installation or setup required.
+**Running Simulation**: Open `ElectricFieldSimulationSimple.html` directly in any modern web browser. No installation or setup required.
 
 **Development Workflow**: 
-- **HTML Simulations**: Edit the file and refresh browser to see changes. No build process needed.
-- **Manim Animations**: Test with `manim test_manim_basic.py BasicTest -p`, then render with `manim transmission_line_animation.py TransmissionLineFieldAnimation -qh`
+- Edit the HTML file and refresh browser to see changes. No build process needed.
 
 **Current Implementation**:
 - **Primary Simulation**: Dual-panel layout with central arrow and distance plot analysis
@@ -89,46 +86,22 @@ This repository contains interactive physics simulations for visualizing electri
 
 ## File Conventions
 
-- HTML files are self-contained with embedded CSS/JS
-- Current implementation uses light theme styling with gradient sky background
-- When creating theme variants, maintain identical DOM structure and JavaScript functionality
-- File naming convention: `ElectricFieldSimulation[Variant].html`
-- Current focus: Ultra-low field analysis capabilities for educational demonstrations
+- The simulation is self-contained in a single HTML file with embedded CSS/JS
+- Uses light theme styling with gradient sky background
+- When creating variants, maintain identical DOM structure and JavaScript functionality
+- Focus: Ultra-low field analysis capabilities for educational demonstrations
 
 ## Git Workflow
 
-**Current State**: Repository tracks a single active simulation file (`ElectricFieldSimulationSimple.html`) with periodic cleanup of outdated variants.
+**Current State**: Repository contains a single simulation file (`ElectricFieldSimulationSimple.html`).
 
 **Development Pattern**: 
-- Make incremental improvements to the active simulation
+- Make incremental improvements to the simulation
 - Test changes by opening HTML file in browser
 - Commit functional enhancements with descriptive messages
-- Remove obsolete simulation variants to maintain repository cleanliness
 
 **No Build System**: Since simulations are self-contained HTML files, there are no build commands, test runners, or package management scripts to execute.
 
-## Manim Animation Development
-
-**Setup Requirements**:
-```bash
-pip install manim numpy
-```
-
-**Common Commands**:
-- **Test compatibility**: `manim test_manim_basic.py BasicTest -p`
-- **Quick preview**: `manim transmission_line_animation.py TransmissionLineFieldAnimation -ql`
-- **High quality render**: `manim transmission_line_animation.py TransmissionLineFieldAnimation -qh`
-- **Check syntax**: `manim transmission_line_animation.py TransmissionLineFieldAnimation --dry_run`
-
-**Animation Architecture**:
-- 5 educational scenes: system setup, voltage phasors, field animation, field plotting, parameter studies
-- Converts HTML simulation physics into dynamic educational visualization
-- Uses same electric field calculations with conducting cylinders above non-conducting ground
-
-**Known Compatibility Issues**:
-- Color constants (CYAN, GRAY, YELLOW, ORANGE) defined as hex values for compatibility
-- Avoid modifying `self.time` property (Manim read-only)
-- Use `DEGREES = PI/180` for angle conversions
 
 ## Physics Model Details
 

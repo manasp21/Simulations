@@ -198,37 +198,14 @@
             <p><strong>Configuration:</strong> Double-circuit three-phase transmission line with opposing phase arrangement</p>
             <p><strong>Analysis Focus:</strong> Electric field behavior at center point (0, 44m height)</p>
             <p><strong>Distance Plot:</strong> Ultra-high resolution field magnitude from center to 50m radius</p>
-            <p><strong>Vector Analysis:</strong> Center (red), 25m (blue), and ground-level 48.7m (green) field vectors</p>
+            <p><strong>Vector Analysis:</strong> Center (red), 25m (blue), and ground-level 40m (green) field vectors</p>
             <p><strong>Mathematical Model:</strong></p>
             <div class="formula">
-                <p><strong>Electric Field Superposition:</strong></p>
-                $$\vec{E}(\vec{r},t) = \sum_{i=1}^{6} \frac{\lambda_i(t)}{2\pi\varepsilon_0} \frac{\hat{r}_i}{r_i}$$
-                
-                <p><strong>Line Charge Density (Conducting Cylinder):</strong></p>
-                $$\lambda_i(t) = \frac{2\pi\varepsilon_0 V_i(t)}{\ln(2h_i/a)}$$
-                
-                <p><strong>Time-Varying Voltage:</strong></p>
-                $$V_i(t) = V_{\text{peak}} \sin(\omega t + \phi_i + \theta_{\text{circuit}})$$
-                
-                <p><strong>Physics Principles:</strong></p>
-                • <strong>Conducting Boundary:</strong> $\vec{E} = 0$ inside conductors (radius $a = 1.5$ cm)<br>
-                • <strong>Non-conducting Ground:</strong> No image charges or ground plane effects<br>
-                • <strong>Line Charge Model:</strong> Each conductor treated as line charge at height $h_i = 44$ m above ground<br>
-                • <strong>Phase Configuration:</strong> Circuit 1 & 2 base phases: [0°, 120°, 240°] (identical)<br>
-                • <strong>Phase Offset Effect:</strong> $\phi_{C2,i}(t) = \phi_{C1,i} + \theta_{\text{offset}}$ applied in real-time<br>
-                
-                <p><strong>Phase Relationship Physics:</strong></p>
-                • <strong>θ_offset = 0°:</strong> Circuits have identical phases → Constructive interference at center → Maximum field<br>
-                • <strong>θ_offset = 180°:</strong> Circuit 2 phases become [180°, 300°, 60°] → Perfect opposition → Destructive interference → Field cancellation<br>
-                • <strong>Physical Mechanism:</strong> Each Circuit 1 conductor has equal/opposite Circuit 2 conductor on opposite side of center<br>
-                • <strong>Spatial Symmetry:</strong> At center point, Circuit 1 and Circuit 2 contributions are equidistant but phase-opposed when θ_offset = 180°
-                
-                <p><strong>Distance Calculations:</strong></p>
-                • <strong>Red Arrow (Center):</strong> $(0, 44)$ m<br>
-                • <strong>Blue Arrow (25m lateral):</strong> $(25, 44)$ m<br>
-                • <strong>Green Arrow (Ground level):</strong><br>
-                &nbsp;&nbsp;&nbsp;&nbsp;Position: $(\cos(35°) \times 30, 2) = (24.6, 2)$ m<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;Distance from center: $\sqrt{(24.6-0)^2 + (2-44)^2} = \sqrt{24.6^2 + 42^2} = 48.7$ m
+                E(r,t) = Σᵢ₌₁⁶ [λᵢ(t) / (2πε₀)] · (r̂ᵢ / rᵢ) [Conducting cylinders, Non-conducting ground]
+                <br>
+                λᵢ(t) = 2πε₀Vᵢ(t) / ln(2hᵢ/a) | E = 0 inside conductors | No ground images
+                <br>
+                Center cancellation: E₁₂(t) + E₂₁(t) ≈ 0 when φ₂ = φ₁ + 180°
             </div>
             <p><strong>Time:</strong> <span id="timeDisplay">0.000</span> s | 
                <strong>Center Field:</strong> <span id="centerField">0.0</span> kV/m |
@@ -280,8 +257,8 @@
         let frequency = 60; // Hz
         let omega = TWO_PI * frequency;
         
-        // Visualization parameters - increased for better visual responsiveness
-        let arrowScale = 4;
+        // Visualization parameters
+        let arrowScale = 2;
         let plotStartDistance = 0; // meters
         let plotEndDistance = 50; // meters
         let plotMaxField = 2; // kV/m - default field range for general analysis
@@ -569,14 +546,11 @@
             const centerField = calculateElectricField(0, centerHeight, time);
             const centerFieldMag = getFieldMagnitude(centerField.x, centerField.y);
             
-            // Arrow properties - always draw arrow, let it scale naturally to 0
-            const maxArrowLength = 120;
-            const minArrowLength = 2; // Minimum length for visibility
-            const scaledLength = centerFieldMag * arrowScale * 100; // Base scale reference (1x)
-            const arrowLength = Math.max(Math.min(scaledLength, maxArrowLength), minArrowLength);
-            const arrowAngle = Math.atan2(-centerField.y, centerField.x); // Negative y for screen coords
-            
-            if (arrowLength > minArrowLength) { // Only draw if meaningful size
+            if (centerFieldMag > 0.001) { // Lower threshold for ultra-low field analysis
+                // Arrow properties
+                const maxArrowLength = 100;
+                const arrowLength = Math.min(centerFieldMag * arrowScale * 100, maxArrowLength); // Base scale reference (1x)
+                const arrowAngle = Math.atan2(-centerField.y, centerField.x); // Negative y for screen coords
                 
                 // Arrow shaft
                 const endX = centerPos.x + Math.cos(arrowAngle) * arrowLength;
@@ -607,9 +581,8 @@
                 fieldCtx.stroke();
             }
             
-            // Update center field display with precision threshold for exact cancellation
-            const displayMagnitude = centerFieldMag < 0.005 ? 0.00 : centerFieldMag;
-            document.getElementById('centerField').textContent = displayMagnitude.toFixed(2);
+            // Update center field display
+            document.getElementById('centerField').textContent = centerFieldMag.toFixed(2);
             const centerAngle = Math.atan2(-centerField.y, centerField.x) * 180 / Math.PI;
             document.getElementById('centerAngle').textContent = centerAngle.toFixed(1);
         }
@@ -640,8 +613,8 @@
                 // Choose best label position based on circle size and canvas bounds
                 let labelX, labelY;
                 
-                // Consistent positioning for ALL distance labels - same direction as 50m circles
-                const angle = Math.PI / 4; // 45 degrees down-right (same as 50m circles)
+                // Consistent positioning for ALL distance labels - same direction as 40m
+                const angle = Math.PI / 4; // 45 degrees down-right (same as 40m, 50m)
                 labelX = centerPos.x + Math.cos(angle) * radius;
                 labelY = centerPos.y + Math.sin(angle) * radius;
                 
@@ -712,22 +685,22 @@
                 fieldCtx.lineTo(x, startY + 5);
                 fieldCtx.stroke();
                 
-                // Draw label with background (with fallback for roundRect) - positioned clearly above the line
+                // Draw label with background (with fallback for roundRect)
                 fieldCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
                 fieldCtx.beginPath();
                 if (fieldCtx.roundRect) {
-                    fieldCtx.roundRect(x - 15, startY - 35, 30, 15, 3);
+                    fieldCtx.roundRect(x - 15, startY - 25, 30, 15, 3);
                 } else {
-                    fieldCtx.rect(x - 15, startY - 35, 30, 15);
+                    fieldCtx.rect(x - 15, startY - 25, 30, 15);
                 }
                 fieldCtx.fill();
                 
-                // Draw text - positioned clearly above the line
+                // Draw text
                 fieldCtx.fillStyle = '#333333';
                 fieldCtx.font = 'bold 12px Arial';
                 fieldCtx.textAlign = 'center';
                 fieldCtx.textBaseline = 'middle';
-                fieldCtx.fillText(`${distance}m`, x, startY - 27);
+                fieldCtx.fillText(`${distance}m`, x, startY - 17);
             });
             
             // Add scale title
@@ -760,14 +733,11 @@
             const field = calculateElectricField(vectorX, vectorY, time);
             const fieldMag = getFieldMagnitude(field.x, field.y);
             
-            // Arrow properties - always draw arrow, let it scale naturally to 0
-            const maxArrowLength = 120;
-            const minArrowLength = 2; // Minimum length for visibility
-            const scaledLength = fieldMag * arrowScale * 200; // 10x amplification vs red arrow (reduced for proper scaling)
-            const arrowLength = Math.max(Math.min(scaledLength, maxArrowLength), minArrowLength);
-            const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
-            
-            if (arrowLength > minArrowLength) { // Only draw if meaningful size
+            if (fieldMag > 0.001) { // Lower threshold for ultra-low field analysis
+                // Arrow properties
+                const maxArrowLength = 60;
+                const arrowLength = Math.min(fieldMag * arrowScale * 1000, maxArrowLength); // 10x amplification vs red arrow
+                const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
                 
                 // Arrow shaft
                 const endX = vectorPos.x + Math.cos(arrowAngle) * arrowLength;
@@ -807,12 +777,13 @@
             fieldCtx.lineWidth = 2;
             fieldCtx.stroke();
             
-            // Add label - show the same field magnitude value used for arrow scaling
+            // Add label - compare single point vs averaged value
+            const averagedFieldMag = sampleFieldAtDistance(25, time);
             fieldCtx.fillStyle = '#0066FF';
             fieldCtx.font = 'bold 12px Arial';
             fieldCtx.textAlign = 'center';
             fieldCtx.textBaseline = 'bottom';
-            fieldCtx.fillText(`25m: ${fieldMag.toFixed(3)} kV/m`, vectorPos.x, vectorPos.y - 10);
+            fieldCtx.fillText(`25m: ${fieldMag.toFixed(3)} kV/m (avg: ${averagedFieldMag.toFixed(3)})`, vectorPos.x, vectorPos.y - 10);
         }
         
         // Draw ground-level E-vector at 48.7m from center  
@@ -829,14 +800,11 @@
             const field = calculateElectricField(vectorX, vectorY, time);
             const fieldMag = getFieldMagnitude(field.x, field.y);
             
-            // Arrow properties - always draw arrow, let it scale naturally to 0
-            const maxArrowLength = 150;
-            const minArrowLength = 2; // Minimum length for visibility
-            const scaledLength = fieldMag * arrowScale * 2000; // 100x amplification vs red arrow (reduced for proper scaling)
-            const arrowLength = Math.max(Math.min(scaledLength, maxArrowLength), minArrowLength);
-            const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
-            
-            if (arrowLength > minArrowLength) { // Only draw if meaningful size
+            if (fieldMag > 0.0001) { // Even lower threshold for ultra-low field analysis
+                // Arrow properties
+                const maxArrowLength = 80;
+                const arrowLength = Math.min(fieldMag * arrowScale * 10000, maxArrowLength); // 100x amplification vs red arrow
+                const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
                 
                 // Arrow shaft
                 const endX = vectorPos.x + Math.cos(arrowAngle) * arrowLength;

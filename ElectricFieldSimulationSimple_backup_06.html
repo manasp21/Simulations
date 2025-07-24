@@ -159,8 +159,8 @@
                 <button id="circuit2Btn" class="circuit-btn">Circuit 2: ON</button>
                 <div class="parameter">
                     <label>Phase Offset (deg):</label>
-                    <input type="range" id="phaseOffsetSlider" min="0" max="360" value="180" step="15">
-                    <span class="value-display" id="phaseOffsetValue">180</span>
+                    <input type="range" id="phaseOffsetSlider" min="0" max="360" value="0" step="15">
+                    <span class="value-display" id="phaseOffsetValue">0</span>
                 </div>
             </div>
             
@@ -213,27 +213,19 @@
                 <p><strong>Physics Principles:</strong></p>
                 • <strong>Conducting Boundary:</strong> $\vec{E} = 0$ inside conductors (radius $a = 1.5$ cm)<br>
                 • <strong>Non-conducting Ground:</strong> No image charges or ground plane effects<br>
-                • <strong>Line Charge Model:</strong> Each conductor treated as line charge at height $h_i = 44$ m above ground<br>
-                • <strong>Phase Configuration:</strong> Circuit 1 & 2 base phases: [0°, 120°, 240°] (identical)<br>
-                • <strong>Phase Offset Effect:</strong> $\phi_{C2,i}(t) = \phi_{C1,i} + \theta_{\text{offset}}$ applied in real-time<br>
-                
-                <p><strong>Phase Relationship Physics:</strong></p>
-                • <strong>θ_offset = 0°:</strong> Circuits have identical phases → Constructive interference at center → Maximum field<br>
-                • <strong>θ_offset = 180°:</strong> Circuit 2 phases become [180°, 300°, 60°] → Perfect opposition → Destructive interference → Field cancellation<br>
-                • <strong>Physical Mechanism:</strong> Each Circuit 1 conductor has equal/opposite Circuit 2 conductor on opposite side of center<br>
-                • <strong>Spatial Symmetry:</strong> At center point, Circuit 1 and Circuit 2 contributions are equidistant but phase-opposed when θ_offset = 180°
+                • <strong>Method of Images:</strong> Each conductor at height $h_i = 44$ m above ground<br>
+                • <strong>Phase Opposition:</strong> Circuit 2 phases: [180°, 300°, 60°] vs Circuit 1: [0°, 120°, 240°]<br>
+                • <strong>Center Cancellation:</strong> $|\vec{E}_{\text{center}}| \approx 0$ when $\theta_{\text{offset}} = 0°$
                 
                 <p><strong>Distance Calculations:</strong></p>
-                • <strong>Red Arrow (Center):</strong> $(0, 44)$ m<br>
-                • <strong>Blue Arrow (25m lateral):</strong> $(25, 44)$ m<br>
-                • <strong>Green Arrow (Ground level):</strong><br>
-                &nbsp;&nbsp;&nbsp;&nbsp;Position: $(\cos(35°) \times 30, 2) = (24.6, 2)$ m<br>
-                &nbsp;&nbsp;&nbsp;&nbsp;Distance from center: $\sqrt{(24.6-0)^2 + (2-44)^2} = \sqrt{24.6^2 + 42^2} = 48.7$ m
+                • Red Arrow (Center): $(0, 44)$ m<br>
+                • Blue Arrow (25m): $(25, 44)$ m<br>
+                • Green Arrow (Ground): $(24.6, 2)$ m → Total distance = $\sqrt{24.6^2 + 42^2} = 48.7$ m
             </div>
             <p><strong>Time:</strong> <span id="timeDisplay">0.000</span> s | 
                <strong>Center Field:</strong> <span id="centerField">0.0</span> kV/m |
                <strong>Center Direction:</strong> <span id="centerAngle">0</span>° |
-               <strong>Circuit 2 Offset:</strong> <span id="circuit2Phase">180</span>°
+               <strong>Circuit 2 Offset:</strong> <span id="circuit2Phase">0</span>°
             </p>
         </div>
     </div>
@@ -273,15 +265,15 @@
         // Circuit states
         let circuit1Active = true;
         let circuit2Active = true;
-        let phaseOffsetDegrees = 180;
+        let phaseOffsetDegrees = 0;
         
         // Electrical parameters
         let peakVoltage = 30000; // Volts (Fixed at 30 kV)
         let frequency = 60; // Hz
         let omega = TWO_PI * frequency;
         
-        // Visualization parameters - increased for better visual responsiveness
-        let arrowScale = 4;
+        // Visualization parameters
+        let arrowScale = 2;
         let plotStartDistance = 0; // meters
         let plotEndDistance = 50; // meters
         let plotMaxField = 2; // kV/m - default field range for general analysis
@@ -317,7 +309,7 @@
                 });
             }
             
-            // Circuit 2 conductors (opposite positions)
+            // Circuit 2 conductors (opposite positions with 180° phase offset)
             for (let i = 0; i < 3; i++) {
                 const vertex = circuit2Vertices[i];
                 const angle = (vertex * 60 - 90) * Math.PI / 180; // Start from top
@@ -325,7 +317,7 @@
                 positions.push({
                     x: Math.cos(angle) * hexRadius,
                     y: centerHeight + Math.sin(angle) * hexRadius,
-                    phase: i * 120, // 0°, 120°, 240°
+                    phase: (i * 120 + 180) % 360, // 180°, 300°, 60° (opposing phase arrangement)
                     circuit: 2,
                     label: phaseNames[i] + '2'
                 });
@@ -569,14 +561,11 @@
             const centerField = calculateElectricField(0, centerHeight, time);
             const centerFieldMag = getFieldMagnitude(centerField.x, centerField.y);
             
-            // Arrow properties - always draw arrow, let it scale naturally to 0
-            const maxArrowLength = 120;
-            const minArrowLength = 2; // Minimum length for visibility
-            const scaledLength = centerFieldMag * arrowScale * 100; // Base scale reference (1x)
-            const arrowLength = Math.max(Math.min(scaledLength, maxArrowLength), minArrowLength);
-            const arrowAngle = Math.atan2(-centerField.y, centerField.x); // Negative y for screen coords
-            
-            if (arrowLength > minArrowLength) { // Only draw if meaningful size
+            if (centerFieldMag > 0.001) { // Lower threshold for ultra-low field analysis
+                // Arrow properties
+                const maxArrowLength = 100;
+                const arrowLength = Math.min(centerFieldMag * arrowScale * 100, maxArrowLength); // Base scale reference (1x)
+                const arrowAngle = Math.atan2(-centerField.y, centerField.x); // Negative y for screen coords
                 
                 // Arrow shaft
                 const endX = centerPos.x + Math.cos(arrowAngle) * arrowLength;
@@ -607,9 +596,8 @@
                 fieldCtx.stroke();
             }
             
-            // Update center field display with precision threshold for exact cancellation
-            const displayMagnitude = centerFieldMag < 0.005 ? 0.00 : centerFieldMag;
-            document.getElementById('centerField').textContent = displayMagnitude.toFixed(2);
+            // Update center field display
+            document.getElementById('centerField').textContent = centerFieldMag.toFixed(2);
             const centerAngle = Math.atan2(-centerField.y, centerField.x) * 180 / Math.PI;
             document.getElementById('centerAngle').textContent = centerAngle.toFixed(1);
         }
@@ -760,14 +748,11 @@
             const field = calculateElectricField(vectorX, vectorY, time);
             const fieldMag = getFieldMagnitude(field.x, field.y);
             
-            // Arrow properties - always draw arrow, let it scale naturally to 0
-            const maxArrowLength = 120;
-            const minArrowLength = 2; // Minimum length for visibility
-            const scaledLength = fieldMag * arrowScale * 200; // 10x amplification vs red arrow (reduced for proper scaling)
-            const arrowLength = Math.max(Math.min(scaledLength, maxArrowLength), minArrowLength);
-            const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
-            
-            if (arrowLength > minArrowLength) { // Only draw if meaningful size
+            if (fieldMag > 0.001) { // Lower threshold for ultra-low field analysis
+                // Arrow properties
+                const maxArrowLength = 60;
+                const arrowLength = Math.min(fieldMag * arrowScale * 1000, maxArrowLength); // 10x amplification vs red arrow
+                const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
                 
                 // Arrow shaft
                 const endX = vectorPos.x + Math.cos(arrowAngle) * arrowLength;
@@ -807,12 +792,13 @@
             fieldCtx.lineWidth = 2;
             fieldCtx.stroke();
             
-            // Add label - show the same field magnitude value used for arrow scaling
+            // Add label - compare single point vs averaged value
+            const averagedFieldMag = sampleFieldAtDistance(25, time);
             fieldCtx.fillStyle = '#0066FF';
             fieldCtx.font = 'bold 12px Arial';
             fieldCtx.textAlign = 'center';
             fieldCtx.textBaseline = 'bottom';
-            fieldCtx.fillText(`25m: ${fieldMag.toFixed(3)} kV/m`, vectorPos.x, vectorPos.y - 10);
+            fieldCtx.fillText(`25m: ${fieldMag.toFixed(3)} kV/m (avg: ${averagedFieldMag.toFixed(3)})`, vectorPos.x, vectorPos.y - 10);
         }
         
         // Draw ground-level E-vector at 48.7m from center  
@@ -829,14 +815,11 @@
             const field = calculateElectricField(vectorX, vectorY, time);
             const fieldMag = getFieldMagnitude(field.x, field.y);
             
-            // Arrow properties - always draw arrow, let it scale naturally to 0
-            const maxArrowLength = 150;
-            const minArrowLength = 2; // Minimum length for visibility
-            const scaledLength = fieldMag * arrowScale * 2000; // 100x amplification vs red arrow (reduced for proper scaling)
-            const arrowLength = Math.max(Math.min(scaledLength, maxArrowLength), minArrowLength);
-            const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
-            
-            if (arrowLength > minArrowLength) { // Only draw if meaningful size
+            if (fieldMag > 0.0001) { // Even lower threshold for ultra-low field analysis
+                // Arrow properties
+                const maxArrowLength = 80;
+                const arrowLength = Math.min(fieldMag * arrowScale * 10000, maxArrowLength); // 100x amplification vs red arrow
+                const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
                 
                 // Arrow shaft
                 const endX = vectorPos.x + Math.cos(arrowAngle) * arrowLength;

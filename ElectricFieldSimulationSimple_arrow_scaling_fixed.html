@@ -761,9 +761,9 @@
             const fieldMag = getFieldMagnitude(field.x, field.y);
             
             // Arrow properties - always draw arrow, let it scale naturally to 0
-            const maxArrowLength = 120;
+            const maxArrowLength = 80;
             const minArrowLength = 2; // Minimum length for visibility
-            const scaledLength = fieldMag * arrowScale * 200; // 10x amplification vs red arrow (reduced for proper scaling)
+            const scaledLength = fieldMag * arrowScale * 1000; // 10x amplification vs red arrow
             const arrowLength = Math.max(Math.min(scaledLength, maxArrowLength), minArrowLength);
             const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
             
@@ -830,9 +830,9 @@
             const fieldMag = getFieldMagnitude(field.x, field.y);
             
             // Arrow properties - always draw arrow, let it scale naturally to 0
-            const maxArrowLength = 150;
+            const maxArrowLength = 100;
             const minArrowLength = 2; // Minimum length for visibility
-            const scaledLength = fieldMag * arrowScale * 2000; // 100x amplification vs red arrow (reduced for proper scaling)
+            const scaledLength = fieldMag * arrowScale * 10000; // 100x amplification vs red arrow
             const arrowLength = Math.max(Math.min(scaledLength, maxArrowLength), minArrowLength);
             const arrowAngle = Math.atan2(-field.y, field.x); // Negative y for screen coords
             
